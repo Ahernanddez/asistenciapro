@@ -46,8 +46,8 @@ Google exige identificar la app antes de permitirle tocar tu Drive. Es gratis y 
 1. Entra a [console.cloud.google.com](https://console.cloud.google.com) con tu cuenta de Google y crea un **proyecto** (o usa uno existente).
 2. Activa la **Google Drive API**: menú → *APIs y servicios* → *Biblioteca* → busca **Google Drive API** → **Habilitar**.
 3. Ve a *APIs y servicios* → *Credenciales* → **Crear credenciales** → **ID de cliente OAuth** → tipo **Aplicación web**.
-4. En **Orígenes de JavaScript autorizados** agrega la URL donde usas la app:
-   - Tu sitio publicado, p. ej. `https://TUUSUARIO.github.io/minventario` (la URL real que muestra GitHub Pages).
+4. En **Orígenes de JavaScript autorizados** agrega el **origen** de tu sitio **sin la ruta** (ese campo no admite `/`):
+   - `https://TUUSUARIO.github.io` — en tu caso `https://ahernanddez.github.io` (solo el dominio, **no** incluyas `/minventario`).
    - `http://localhost:5500` si la pruebas con un servidor local.
 5. Crea el cliente y copia el **Client ID** (algo como `xxxx.apps.googleusercontent.com`).
 6. En `index.html` busca la constante `DRIVE_CLIENT_ID` (cerca del inicio del `<script>`) y pégalo entre las comillas.

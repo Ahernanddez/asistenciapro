@@ -693,7 +693,7 @@ const DB_STORE = 'fotos';
 /* ---------------- Google Drive (respaldo en la nube) ---------------- */
 // Para activar el respaldo en Drive, crea un ID de cliente OAuth (tipo "Aplicación web")
 // en https://console.cloud.google.com y pégalo aquí. Pasos en el README.
-const DRIVE_CLIENT_ID = '';
+const DRIVE_CLIENT_ID = '331783643231-751s47oie5ff4cjv5g752entdg1gjinn.apps.googleusercontent.com';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const DRIVE_CARPETA = 'MiInventario';
 const DRIVE_MAX_RESPALDOS = 10;
@@ -1673,7 +1673,7 @@ function abrirModalDrive() {
       '<li>Entra a <b>console.cloud.google.com</b> y crea un proyecto (o usa uno existente).</li>' +
       '<li>Activa la <b>Google Drive API</b>: “APIs y servicios → Biblioteca” → busca “Google Drive API” → Habilitar.</li>' +
       '<li>Ve a “APIs y servicios → Credenciales” → “Crear credenciales” → <b>ID de cliente OAuth</b> → tipo <b>Aplicación web</b>.</li>' +
-      '<li>En <b>Orígenes de JavaScript autorizados</b> agrega la URL de tu sitio (p. ej. <code>https://TUUSUARIO.github.io/minventario</code>) y <code>http://localhost:5500</code> para pruebas.</li>' +
+      '<li>En <b>Orígenes de JavaScript autorizados</b> agrega el <b>origen</b> de tu sitio <b>sin la ruta</b> (ese campo no admite "/"): <code>https://TUUSUARIO.github.io</code> y, para pruebas, <code>http://localhost:5500</code>.</li>' +
       '<li>Copia el <b>Client ID</b> y pégalo en <code>index.html</code> en la constante <code>DRIVE_CLIENT_ID</code>.</li>' +
       '</ol>' +
       '<p style="font-size:12.5px;color:var(--texto-suave)">Los pasos detallados también están en el README del proyecto.</p>';
