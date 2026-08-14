@@ -1,0 +1,1523 @@
+<!DOCTYPE html>
+<html lang="es" data-tema="claro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📦 MiInventario — Control de equipos</title>
+<meta name="description" content="Ordena tu inventario de equipos con fotos, número de serie y dirección MAC.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+<style>
+/* ============ Variables y base ============ */
+:root {
+  --acento: #4f46e5;
+  --acento-claro: #eef2ff;
+  --acento-oscuro: #4338ca;
+  --fondo: #f4f5fb;
+  --superficie: #ffffff;
+  --texto: #1e2233;
+  --texto-suave: #6b7280;
+  --borde: #e5e7eb;
+  --sombra: 0 1px 3px rgba(16, 24, 40, .08), 0 1px 2px rgba(16, 24, 40, .04);
+  --sombra-alta: 0 12px 32px rgba(16, 24, 40, .16);
+  --radio: 14px;
+  --ok: #16a34a;   --ok-fondo: #dcfce7;
+  --rep: #ea580c;  --rep-fondo: #ffedd5;
+  --pre: #2563eb;  --pre-fondo: #dbeafe;
+  --baja: #6b7280; --baja-fondo: #e5e7eb;
+}
+
+[data-tema="oscuro"] {
+  --fondo: #0f1117;
+  --superficie: #191c26;
+  --texto: #e8eaf2;
+  --texto-suave: #9aa1b5;
+  --borde: #2b3040;
+  --acento-claro: #232746;
+  --sombra: 0 1px 3px rgba(0, 0, 0, .4);
+  --sombra-alta: 0 12px 32px rgba(0, 0, 0, .5);
+  --ok-fondo: #12321f;   --rep-fondo: #3a2110;  --pre-fondo: #15264a;  --baja-fondo: #262b36;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: var(--fondo);
+  color: var(--texto);
+  line-height: 1.45;
+  transition: background .25s, color .25s;
+}
+
+/* ============ Encabezado ============ */
+.encabezado {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 16px 22px;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borde);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.marca { display: flex; align-items: center; gap: 12px; }
+.logo { font-size: 30px; }
+.marca h1 { margin: 0; font-size: 19px; letter-spacing: -.2px; }
+.sub { margin: 0; font-size: 12.5px; color: var(--texto-suave); }
+
+.stats { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.stat {
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12.5px;
+  color: var(--texto-suave);
+  white-space: nowrap;
+}
+.stat b { color: var(--texto); font-weight: 650; }
+
+.acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ============ Botones ============ */
+.btn {
+  appearance: none;
+  border: 1px solid var(--borde);
+  background: var(--superficie);
+  color: var(--texto);
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: transform .06s, box-shadow .15s, background .15s, border-color .15s;
+  font-family: inherit;
+}
+.btn:hover { border-color: var(--acento); box-shadow: var(--sombra); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.btn-primario { background: var(--acento); border-color: var(--acento); color: #fff; }
+.btn-primario:hover { background: var(--acento-oscuro); border-color: var(--acento-oscuro); box-shadow: 0 4px 14px rgba(79, 70, 229, .35); }
+.btn-peligro { color: #dc2626; border-color: #fecaca; }
+.btn-peligro:hover { background: #fef2f2; border-color: #dc2626; }
+[data-tema="oscuro"] .btn-peligro { border-color: #7f1d1d; }
+[data-tema="oscuro"] .btn-peligro:hover { background: #2b1517; }
+.btn-ghost { background: transparent; border-color: transparent; }
+.btn-ghost:hover { background: var(--fondo); border-color: var(--borde); }
+
+/* ============ Pestañas ============ */
+.pestanas {
+  display: flex;
+  gap: 4px;
+  padding: 10px 22px 0;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.pestana {
+  border: none;
+  background: transparent;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto-suave);
+  cursor: pointer;
+  border-radius: 10px 10px 0 0;
+  border-bottom: 2px solid transparent;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.pestana:hover { color: var(--texto); background: var(--superficie); }
+.pestana.activa { color: var(--acento); border-bottom-color: var(--acento); background: var(--superficie); }
+.contador {
+  background: var(--acento);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 1px 8px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* ============ Main / vistas ============ */
+main { max-width: 1200px; margin: 0 auto; padding: 18px 22px 60px; }
+.vista { animation: aparecer .18s ease; }
+@keyframes aparecer { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ============ Barra de herramientas ============ */
+.barra {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.barra input[type="search"] {
+  flex: 1 1 260px;
+  padding: 10px 14px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--superficie);
+  color: var(--texto);
+  font-size: 14px;
+  font-family: inherit;
+}
+.barra select {
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--superficie);
+  color: var(--texto);
+  font-size: 13.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--acento); outline-offset: 1px; border-color: var(--acento); }
+
+/* ============ Grid de tarjetas ============ */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+}
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  overflow: hidden;
+  box-shadow: var(--sombra);
+  display: flex;
+  flex-direction: column;
+  transition: transform .12s, box-shadow .12s;
+}
+.tarjeta:hover { transform: translateY(-2px); box-shadow: var(--sombra-alta); }
+
+.tarjeta-foto {
+  aspect-ratio: 4 / 3;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  cursor: zoom-in;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+[data-tema="oscuro"] .tarjeta-foto { background: linear-gradient(135deg, #312e81, #581c87); }
+.tarjeta-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tarjeta-foto .emoji { font-size: 56px; filter: drop-shadow(0 4px 8px rgba(0,0,0,.3)); }
+.tarjeta-foto .sin-foto-etiq { position: absolute; bottom: 8px; font-size: 11px; color: #fff; background: rgba(0,0,0,.35); padding: 2px 10px; border-radius: 999px; }
+
+.tarjeta-cuerpo { padding: 13px 15px 12px; display: flex; flex-direction: column; gap: 7px; flex: 1; }
+.etiquetas { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.etiqueta {
+  font-size: 11px;
+  font-weight: 650;
+  border-radius: 999px;
+  padding: 2px 9px;
+  letter-spacing: .2px;
+}
+.etq-tipo { background: var(--acento-claro); color: var(--acento); }
+.etq-operativo { background: var(--ok-fondo); color: var(--ok); }
+.etq-reparacion { background: var(--rep-fondo); color: var(--rep); }
+.etq-prestamo { background: var(--pre-fondo); color: var(--pre); }
+.etq-baja { background: var(--baja-fondo); color: var(--baja); }
+
+.fila { display: flex; align-items: baseline; gap: 7px; font-size: 13px; }
+.fila .k { color: var(--texto-suave); min-width: 42px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; font-weight: 600; }
+.fila .v { color: var(--texto); word-break: break-all; }
+.mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12.5px; }
+.tarjeta-marca { color: var(--texto); font-size: 14.5px; font-weight: 650; }
+.tarjeta-fecha { font-size: 11.5px; color: var(--texto-suave); margin-top: auto; }
+
+.tarjeta-pie {
+  display: flex;
+  border-top: 1px solid var(--borde);
+}
+.tarjeta-pie button {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--texto-suave);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .12s, color .12s;
+}
+.tarjeta-pie button + button { border-left: 1px solid var(--borde); }
+.tarjeta-pie button:hover { background: var(--fondo); color: var(--texto); }
+.tarjeta-pie .eliminar:hover { color: #dc2626; background: #fef2f2; }
+
+/* ============ Vacío ============ */
+.vacio {
+  text-align: center;
+  padding: 70px 20px;
+  color: var(--texto-suave);
+}
+.vacio-icono { font-size: 64px; display: block; margin-bottom: 10px; }
+.vacio h2 { color: var(--texto); margin: 6px 0; }
+.vacio p { margin: 0 0 18px; }
+
+/* ============ Formulario ============ */
+.dos-columnas {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 22px;
+  align-items: start;
+}
+@media (max-width: 860px) { .dos-columnas { grid-template-columns: 1fr; } }
+
+.col-foto, .col-datos { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio); padding: 18px; box-shadow: var(--sombra); }
+.col-foto h2, .col-datos h2 { margin: 0 0 12px; font-size: 16px; }
+
+.zona-foto {
+  border: 2px dashed var(--borde);
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fondo);
+  position: relative;
+}
+.zona-foto video, .zona-foto img { width: 100%; height: 100%; object-fit: cover; display: block; position: absolute; inset: 0; }
+.sin-foto { text-align: center; color: var(--texto-suave); }
+.sin-foto .icono { font-size: 46px; display: block; margin-bottom: 6px; }
+.sin-foto p { margin: 0; font-size: 14px; }
+
+.controles-foto { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+.detectados { margin-top: 12px; background: var(--ok-fondo); border: 1px solid rgba(22, 163, 74, .35); border-radius: 10px; padding: 10px 12px; }
+.detectados .mini { margin: 0 0 8px; font-size: 12px; color: var(--ok); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  color: var(--texto);
+}
+.chip button {
+  border: none;
+  background: var(--ok-fondo);
+  color: var(--ok);
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.chip button:hover { filter: brightness(.95); }
+
+.ayuda { font-size: 12.5px; color: var(--texto-suave); margin: 12px 0 0; }
+
+.col-datos label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--texto-suave);
+  margin-bottom: 12px;
+}
+.col-datos input, .col-datos select, .col-datos textarea {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 9px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 9px;
+  background: var(--superficie);
+  color: var(--texto);
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 400;
+}
+
+.pie-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+.aviso {
+  font-size: 12.5px;
+  color: #b45309;
+  background: var(--rep-fondo);
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-right: auto;
+}
+
+/* ============ Modal ============ */
+.modal-fondo, .lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 20, .55);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+  animation: aparecer .15s ease;
+}
+.modal {
+  background: var(--superficie);
+  border-radius: 16px;
+  box-shadow: var(--sombra-alta);
+  max-width: 460px;
+  width: 100%;
+  max-height: 85vh;
+  overflow: auto;
+  padding: 22px;
+}
+.modal h3 { margin: 0 0 8px; font-size: 17px; }
+.modal p { margin: 0 0 16px; color: var(--texto-suave); font-size: 14px; }
+.modal-botones { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.lista-ocr { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 14px; }
+.lista-ocr button {
+  text-align: left;
+  border: 1px solid var(--borde);
+  background: var(--fondo);
+  color: var(--texto);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: ui-monospace, Consolas, monospace;
+  cursor: pointer;
+  word-break: break-all;
+}
+.lista-ocr button:hover { border-color: var(--acento); background: var(--acento-claro); color: var(--acento); }
+
+.lightbox { cursor: zoom-out; }
+.lightbox img { max-width: 92vw; max-height: 88vh; border-radius: 10px; box-shadow: var(--sombra-alta); }
+.lightbox-cerrar {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  border-radius: 999px;
+  width: 42px;
+  height: 42px;
+  font-size: 16px;
+}
+
+/* ============ Toasts ============ */
+.toasts {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 60;
+  max-width: min(360px, 90vw);
+}
+.toast {
+  background: var(--texto);
+  color: var(--fondo);
+  border-radius: 10px;
+  padding: 11px 15px;
+  font-size: 13.5px;
+  box-shadow: var(--sombra-alta);
+  animation: aparecer .18s ease;
+  word-break: break-word;
+}
+.toast.ok { background: var(--ok); color: #fff; }
+.toast.error { background: #dc2626; color: #fff; }
+
+/* ============ Responsive ============ */
+@media (max-width: 640px) {
+  .encabezado { padding: 12px 14px; gap: 10px; }
+  .stats { order: 3; width: 100%; }
+  main { padding: 14px 14px 50px; }
+  .pestanas { padding: 8px 14px 0; }
+  .grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tarjeta-cuerpo { padding: 10px; }
+  .fila .k { display: none; }
+}
+@media (max-width: 420px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+/* Scrollbar discreta */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--borde); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--texto-suave); }
+</style>
+</head>
+<body>
+
+<header class="encabezado">
+  <div class="marca">
+    <span class="logo">📦</span>
+    <div class="marca-texto">
+      <h1>MiInventario</h1>
+      <p class="sub">Control de equipos por foto</p>
+    </div>
+  </div>
+  <div id="stats" class="stats"></div>
+  <div class="acciones">
+    <button id="btnEjemplos" class="btn btn-ghost" title="Cargar equipos de ejemplo">✨ Ejemplos</button>
+    <button id="btnImportar" class="btn btn-ghost" title="Restaurar un respaldo">📥 Importar</button>
+    <button id="btnExportar" class="btn btn-ghost" title="Respaldo completo (incluye fotos)">📤 Respaldo</button>
+    <button id="btnCsv" class="btn btn-ghost" title="Exportar la lista a hoja de cálculo">📊 CSV</button>
+    <button id="btnTema" class="btn btn-ghost" title="Cambiar tema">🌙</button>
+  </div>
+</header>
+
+<nav class="pestanas">
+  <button class="pestana activa" data-vista="inventario">📋 Inventario <span id="contador" class="contador"></span></button>
+  <button class="pestana" data-vista="formulario">➕ Registrar equipo</button>
+</nav>
+
+<main>
+  <!-- ============ VISTA: INVENTARIO ============ -->
+  <section id="vista-inventario" class="vista">
+    <div class="barra">
+      <input id="busqueda" type="search" placeholder="Buscar por serie, MAC, marca, modelo, ubicación…" autocomplete="off">
+      <select id="filtroTipo" title="Filtrar por tipo"></select>
+      <select id="filtroEstado" title="Filtrar por estado">
+        <option value="todos">Estado: todos</option>
+        <option value="operativo">🟢 Operativo</option>
+        <option value="reparacion">🟠 En reparación</option>
+        <option value="prestamo">🔵 En préstamo</option>
+        <option value="baja">⚫ Dado de baja</option>
+      </select>
+      <select id="orden" title="Ordenar">
+        <option value="reciente">Más recientes</option>
+        <option value="antiguo">Más antiguos</option>
+        <option value="tipo">Por tipo</option>
+      </select>
+    </div>
+
+    <div id="grid" class="grid"></div>
+
+    <div id="vacio" class="vacio" hidden>
+      <span class="vacio-icono">📷</span>
+      <h2>Aún no hay equipos registrados</h2>
+      <p>Toma una foto de la etiqueta del equipo y el resto es casi automático.</p>
+      <button id="btnIrRegistrar" class="btn btn-primario">➕ Registrar mi primer equipo</button>
+    </div>
+  </section>
+
+  <!-- ============ VISTA: FORMULARIO ============ -->
+  <section id="vista-formulario" class="vista" hidden>
+    <form id="formEquipo" novalidate>
+      <div class="dos-columnas">
+        <div class="col-foto">
+          <h2>📷 Foto del equipo</h2>
+          <div id="zonaFoto" class="zona-foto">
+            <div id="sinFoto" class="sin-foto">
+              <span class="icono">🖼️</span>
+              <p>Sin foto</p>
+            </div>
+            <video id="camara" autoplay playsinline muted hidden></video>
+            <img id="previewFoto" alt="Foto del equipo" hidden>
+          </div>
+          <div id="controlesFoto" class="controles-foto">
+            <button type="button" id="btnCamara" class="btn btn-primario">📷 Tomar foto</button>
+            <button type="button" id="btnSubir" class="btn">📁 Subir foto</button>
+            <button type="button" id="btnCapturar" class="btn btn-primario" hidden>📸 Capturar</button>
+            <button type="button" id="btnCancelarCamara" class="btn" hidden>✖ Cancelar</button>
+            <button type="button" id="btnQuitarFoto" class="btn btn-peligro" hidden>🗑 Quitar foto</button>
+            <button type="button" id="btnOcr" class="btn" hidden>🔍 Leer texto (OCR)</button>
+          </div>
+          <input type="file" id="archivoFoto" accept="image/*" hidden>
+          <div id="detectados" class="detectados" hidden>
+            <p class="mini">Detectado en la foto — haz clic para usarlo:</p>
+            <div id="chips" class="chips"></div>
+          </div>
+          <p class="ayuda">💡 Enfoca la etiqueta con el código de barras o el número de serie: la app intentará rellenar los datos por ti.</p>
+        </div>
+
+        <div class="col-datos">
+          <h2>Datos del equipo</h2>
+          <label>Número de serie
+            <input id="fSerial" placeholder="Ej: X3K2-9F7Q-1TZ4" autocomplete="off">
+          </label>
+          <label>Dirección MAC
+            <input id="fMac" placeholder="AA:BB:CC:DD:EE:FF" autocomplete="off" maxlength="17">
+          </label>
+          <label>Tipo
+            <input id="fTipo" list="listaTipos" placeholder="Laptop, monitor, router…" autocomplete="off">
+            <datalist id="listaTipos"></datalist>
+          </label>
+          <label>Marca <input id="fMarca" placeholder="HP, Dell, Lenovo…" autocomplete="off"></label>
+          <label>Modelo <input id="fModelo" placeholder="ProBook 450 G8…" autocomplete="off"></label>
+          <label>Ubicación <input id="fUbicacion" placeholder="Oficina 2, bodega, casa…" autocomplete="off"></label>
+          <label>Estado
+            <select id="fEstado">
+              <option value="operativo">🟢 Operativo</option>
+              <option value="reparacion">🟠 En reparación</option>
+              <option value="prestamo">🔵 En préstamo</option>
+              <option value="baja">⚫ Dado de baja</option>
+            </select>
+          </label>
+          <label>Notas <textarea id="fNotas" rows="3" placeholder="Detalles extra, garantía, contraseñas de BIOS…"></textarea></label>
+          <label>Fecha de registro <input type="date" id="fFecha"></label>
+        </div>
+      </div>
+
+      <div class="pie-form">
+        <span id="avisoDuplicado" class="aviso" hidden></span>
+        <button type="button" id="btnCancelar" class="btn">Cancelar</button>
+        <button type="submit" id="btnGuardar" class="btn btn-primario">💾 Guardar equipo</button>
+      </div>
+    </form>
+  </section>
+</main>
+
+<!-- ============ MODAL GENÉRICO ============ -->
+<div id="modalFondo" class="modal-fondo" hidden>
+  <div class="modal">
+    <div id="modalContenido"></div>
+  </div>
+</div>
+
+<!-- ============ LIGHTBOX DE FOTO ============ -->
+<div id="lightbox" class="lightbox" hidden>
+  <img id="lightboxImg" alt="Foto ampliada">
+  <button id="btnCerrarLightbox" class="btn lightbox-cerrar" title="Cerrar">✖</button>
+</div>
+
+<div id="toasts" class="toasts"></div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   MiInventario — Control de equipos por foto
+   App 100% local: los datos y fotos viven en tu navegador.
+   ============================================================ */
+
+/* ---------------- Utilidades ---------------- */
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => [...document.querySelectorAll(sel)];
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+
+const normalizar = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const hoyISO = () => new Date().toISOString().slice(0, 10);
+
+const formatearFecha = (iso) => {
+  if (!iso) return '';
+  try {
+    return new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch { return iso; }
+};
+
+const descargar = (nombre, contenido, tipo) => {
+  const blob = contenido instanceof Blob ? contenido : new Blob([contenido], { type: tipo || 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+};
+
+/* ---------------- Toasts ---------------- */
+function toast(mensaje, tipo = '') {
+  const div = document.createElement('div');
+  div.className = 'toast ' + tipo;
+  div.textContent = mensaje;
+  $('#toasts').appendChild(div);
+  setTimeout(() => {
+    div.style.transition = 'opacity .3s, transform .3s';
+    div.style.opacity = '0';
+    div.style.transform = 'translateY(6px)';
+    setTimeout(() => div.remove(), 320);
+  }, 3200);
+}
+
+/* ---------------- Temas ---------------- */
+const TEMA_KEY = 'minventario-tema';
+function aplicarTema(tema) {
+  document.documentElement.dataset.tema = tema;
+  $('#btnTema').textContent = tema === 'oscuro' ? '☀️' : '🌙';
+  try { localStorage.setItem(TEMA_KEY, tema); } catch {}
+}
+$('#btnTema').addEventListener('click', () => {
+  aplicarTema(document.documentElement.dataset.tema === 'oscuro' ? 'claro' : 'oscuro');
+});
+
+/* ---------------- Datos: constantes y estado ---------------- */
+const ESTADOS = {
+  operativo:   { texto: 'Operativo',     etq: 'etq-operativo',   icono: '🟢' },
+  reparacion:  { texto: 'En reparación', etq: 'etq-reparacion',  icono: '🟠' },
+  prestamo:    { texto: 'En préstamo',   etq: 'etq-prestamo',    icono: '🔵' },
+  baja:        { texto: 'Dado de baja',  etq: 'etq-baja',        icono: '⚫' },
+};
+const TIPOS_PREDEFINIDOS = ['Laptop', 'Desktop', 'Monitor', 'Impresora', 'Router', 'Switch', 'Teléfono', 'Tablet', 'Teclado', 'Mouse', 'Cámara', 'Accesorio', 'Otro'];
+const EMOJIS_TIPO = {
+  laptop: '💻', desktop: '🖥️', monitor: '🖥️', impresora: '🖨️', router: '📡', switch: '🔀',
+  teléfono: '📱', telefono: '📱', tablet: '📱', teclado: '⌨️', mouse: '🖱️', cámara: '📷', camara: '📷',
+  accesorio: '🔌', otro: '📦',
+};
+const emojiTipo = (t) => {
+  const k = normalizar(t);
+  for (const [clave, emoji] of Object.entries(EMOJIS_TIPO)) {
+    if (k.includes(clave)) return emoji;
+  }
+  return '📦';
+};
+
+const STORAGE_KEY = 'minventario-equipos-v1';
+const DB_NAME = 'minventario-db';
+const DB_STORE = 'fotos';
+
+let equipos = [];           // metadatos (sin foto)
+let editandoId = null;      // id del equipo en edición (null = nuevo)
+let fotoDataUrl = null;     // foto nueva en el formulario
+let fotoEsNueva = false;    // true si la foto actual debe reemplazar la del equipo
+let streamCamara = null;    // stream de la cámara activo
+
+/* ---------------- Almacenamiento (fotos en IndexedDB) ---------------- */
+function abrirDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(DB_STORE); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function idbPut(clave, blob) {
+  return abrirDB().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    tx.objectStore(DB_STORE).put(blob, clave);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+
+function idbGet(clave) {
+  return abrirDB().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readonly');
+    const req = tx.objectStore(DB_STORE).get(clave);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  }));
+}
+
+function idbDelete(clave) {
+  return abrirDB().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    tx.objectStore(DB_STORE).delete(clave);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+
+function idbLimpiar() {
+  return abrirDB().then((db) => new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    tx.objectStore(DB_STORE).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+
+/* ---------------- Guardar / cargar metadatos ---------------- */
+function guardar() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(equipos)); } catch (e) { toast('No se pudo guardar: ' + e.message, 'error'); }
+}
+
+function cargar() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    equipos = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(equipos)) equipos = [];
+  } catch {
+    equipos = [];
+  }
+}
+
+/* ---------------- Pestañas ---------------- */
+function mostrarVista(vista) {
+  $$('.pestana').forEach((p) => p.classList.toggle('activa', p.dataset.vista === vista));
+  $('#vista-inventario').hidden = vista !== 'inventario';
+  $('#vista-formulario').hidden = vista !== 'formulario';
+  if (vista === 'inventario') {
+    pararCamara();
+    render();
+  } else {
+    $('#fTipo').focus();
+  }
+}
+
+$$('.pestana').forEach((p) => p.addEventListener('click', () => mostrarVista(p.dataset.vista)));
+$('#btnIrRegistrar').addEventListener('click', () => mostrarVista('formulario'));
+
+/* ---------------- Render: stats, filtros y grid ---------------- */
+function estadoActual() {
+  return {
+    busqueda: normalizar($('#busqueda').value),
+    tipo: $('#filtroTipo').value,
+    estado: $('#filtroEstado').value,
+    orden: $('#orden').value,
+  };
+}
+
+function filtrar() {
+  const f = estadoActual();
+  let lista = equipos.filter((e) => {
+    const texto = normalizar([e.serial, e.mac, e.marca, e.modelo, e.ubicacion, e.tipo, e.notas].join(' '));
+    const coincideTexto = !f.busqueda || texto.includes(f.busqueda);
+    const coincideTipo = f.tipo === 'todos' || e.tipo === f.tipo;
+    const coincideEstado = f.estado === 'todos' || e.estado === f.estado;
+    return coincideTexto && coincideTipo && coincideEstado;
+  });
+  lista.sort((a, b) => {
+    if (f.orden === 'tipo') return (a.tipo || '').localeCompare(b.tipo || '', 'es');
+    const diff = (a.fechaRegistro || '').localeCompare(b.fechaRegistro || '');
+    return f.orden === 'antiguo' ? diff : -diff;
+  });
+  return lista;
+}
+
+function renderStats() {
+  const total = equipos.length;
+  const contar = (estado) => equipos.filter((e) => e.estado === estado).length;
+  $('#stats').innerHTML =
+    `<span class="stat">Total: <b>${total}</b></span>` +
+    `<span class="stat">🟢 <b>${contar('operativo')}</b></span>` +
+    `<span class="stat">🟠 <b>${contar('reparacion')}</b></span>` +
+    `<span class="stat">🔵 <b>${contar('prestamo')}</b></span>` +
+    `<span class="stat">⚫ <b>${contar('baja')}</b></span>`;
+}
+
+function renderFiltrosTipo() {
+  const usados = [...new Set(equipos.map((e) => e.tipo).filter(Boolean))];
+  const opciones = [...new Set([...TIPOS_PREDEFINIDOS, ...usados])];
+  const actual = $('#filtroTipo').value;
+  $('#filtroTipo').innerHTML = '<option value="todos">Tipo: todos</option>' +
+    opciones.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  if (actual && opciones.includes(actual)) $('#filtroTipo').value = actual;
+
+  const datalist = TIPOS_PREDEFINIDOS.concat(usados.filter((t) => !TIPOS_PREDEFINIDOS.includes(t)));
+  $('#listaTipos').innerHTML = [...new Set(datalist)].map((t) => `<option value="${esc(t)}">`).join('');
+}
+
+async function render() {
+  renderStats();
+  renderFiltrosTipo();
+  const lista = filtrar();
+  $('#contador').textContent = lista.length;
+  const grid = $('#grid');
+  const vacio = $('#vacio');
+
+  if (equipos.length === 0) {
+    grid.innerHTML = '';
+    vacio.hidden = false;
+    return;
+  }
+  vacio.hidden = true;
+  if (lista.length === 0) {
+    grid.innerHTML = `<div class="vacio" style="grid-column:1/-1">
+      <span class="vacio-icono">🔍</span>
+      <h2>Sin resultados</h2>
+      <p>Ningún equipo coincide con la búsqueda o los filtros.</p>
+      <button class="btn" id="btnLimpiarFiltros">Limpiar filtros</button>
+    </div>`;
+    $('#btnLimpiarFiltros').addEventListener('click', () => {
+      $('#busqueda').value = '';
+      $('#filtroTipo').value = 'todos';
+      $('#filtroEstado').value = 'todos';
+      render();
+    });
+    return;
+  }
+
+  grid.innerHTML = lista.map(crearTarjetaHtml).join('');
+  lista.forEach((e, i) => {
+    const el = grid.children[i];
+    el.querySelector('[data-accion="editar"]').addEventListener('click', () => editarEquipo(e.id));
+    el.querySelector('[data-accion="eliminar"]').addEventListener('click', () => preguntarEliminar(e));
+    const fotoEl = el.querySelector('[data-foto]');
+    if (fotoEl) {
+      fotoEl.addEventListener('click', () => verFoto(e.id));
+      if (e.tieneFoto) {
+        idbGet(e.id).then((blob) => {
+          if (blob) {
+            fotoEl.innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="Foto de ${esc(e.serial || e.tipo || 'equipo')}" loading="lazy">`;
+          }
+        }).catch(() => {});
+      } else {
+        fotoEl.innerHTML = `<span class="emoji">${emojiTipo(e.tipo)}</span><span class="sin-foto-etiq">Sin foto</span>`;
+      }
+    }
+  });
+}
+
+function crearTarjetaHtml(e) {
+  const est = ESTADOS[e.estado] || ESTADOS.operativo;
+  const nombre = [e.marca, e.modelo].filter(Boolean).join(' ') || (e.tipo || 'Equipo');
+  return `<article class="tarjeta" data-id="${esc(e.id)}">
+    <div class="tarjeta-foto" data-foto role="button" title="Ver foto"></div>
+    <div class="tarjeta-cuerpo">
+      <div class="etiquetas">
+        ${e.tipo ? `<span class="etiqueta etq-tipo">${esc(e.tipo)}</span>` : ''}
+        <span class="etiqueta ${est.etq}">${est.icono} ${est.texto}</span>
+      </div>
+      <div class="tarjeta-marca" title="${esc(nombre)}">${esc(nombre)}</div>
+      ${e.serial ? `<div class="fila"><span class="k">Serie</span><span class="v mono">${esc(e.serial)}</span></div>` : ''}
+      ${e.mac ? `<div class="fila"><span class="k">MAC</span><span class="v mono">${esc(e.mac)}</span></div>` : ''}
+      ${e.ubicacion ? `<div class="fila"><span class="k">Lugar</span><span class="v">${esc(e.ubicacion)}</span></div>` : ''}
+      <div class="tarjeta-fecha">📅 ${formatearFecha(e.fechaRegistro)}</div>
+    </div>
+    <div class="tarjeta-pie">
+      <button data-accion="editar">✏️ Editar</button>
+      <button data-accion="eliminar" class="eliminar">🗑 Eliminar</button>
+    </div>
+  </article>`;
+}
+
+/* ---------------- Lightbox ---------------- */
+async function verFoto(id) {
+  const e = equipos.find((x) => x.id === id);
+  if (!e) return;
+  let src = null;
+  if (e.tieneFoto) {
+    const blob = await idbGet(id);
+    if (blob) src = URL.createObjectURL(blob);
+  }
+  if (!src && fotoDataUrl && editandoId === id) src = fotoDataUrl;
+  const img = $('#lightboxImg');
+  if (src) {
+    img.src = src;
+    $('#lightbox').hidden = false;
+  } else {
+    toast('Este equipo no tiene foto', 'error');
+  }
+}
+
+$('#lightbox').addEventListener('click', () => { $('#lightbox').hidden = true; $('#lightboxImg').src = ''; });
+$('#btnCerrarLightbox').addEventListener('click', () => { $('#lightbox').hidden = true; $('#lightboxImg').src = ''; });
+
+/* ---------------- Modal genérico ---------------- */
+function mostrarModal(html) {
+  $('#modalContenido').innerHTML = html;
+  $('#modalFondo').hidden = false;
+}
+function cerrarModal() {
+  $('#modalFondo').hidden = true;
+  $('#modalContenido').innerHTML = '';
+}
+$('#modalFondo').addEventListener('click', (ev) => {
+  if (ev.target === $('#modalFondo')) cerrarModal();
+});
+
+/* ---------------- Eliminar ---------------- */
+function preguntarEliminar(e) {
+  mostrarModal(`
+    <h3>🗑 Eliminar equipo</h3>
+    <p>¿Eliminar <b>${esc([e.marca, e.modelo, e.serial].filter(Boolean).join(' ') || e.tipo || 'este equipo')}</b>?<br>
+    Se borrará también su foto. Esta acción no se puede deshacer.</p>
+    <div class="modal-botones">
+      <button class="btn" id="modalCancelar">Cancelar</button>
+      <button class="btn btn-peligro" id="modalConfirmar">Sí, eliminar</button>
+    </div>`);
+  $('#modalCancelar').addEventListener('click', cerrarModal);
+  $('#modalConfirmar').addEventListener('click', async () => {
+    equipos = equipos.filter((x) => x.id !== e.id);
+    try { await idbDelete(e.id); } catch {}
+    guardar();
+    cerrarModal();
+    toast('Equipo eliminado');
+    render();
+  });
+}
+
+/* ---------------- Formulario: editar / limpiar ---------------- */
+function limpiarFormulario() {
+  editandoId = null;
+  fotoDataUrl = null;
+  fotoEsNueva = false;
+  pararCamara();
+  $('#formEquipo').reset();
+  $('#fSerial').value = '';
+  $('#fMac').value = '';
+  $('#fTipo').value = '';
+  $('#fMarca').value = '';
+  $('#fModelo').value = '';
+  $('#fUbicacion').value = '';
+  $('#fNotas').value = '';
+  $('#fEstado').value = 'operativo';
+  $('#fFecha').value = hoyISO();
+  $('#avisoDuplicado').hidden = true;
+  setEstadoFoto();
+  $('#btnGuardar').textContent = '💾 Guardar equipo';
+}
+
+function editarEquipo(id) {
+  const e = equipos.find((x) => x.id === id);
+  if (!e) return;
+  editandoId = id;
+  fotoDataUrl = null;
+  fotoEsNueva = false;
+  $('#fSerial').value = e.serial || '';
+  $('#fMac').value = e.mac || '';
+  $('#fTipo').value = e.tipo || '';
+  $('#fMarca').value = e.marca || '';
+  $('#fModelo').value = e.modelo || '';
+  $('#fUbicacion').value = e.ubicacion || '';
+  $('#fNotas').value = e.notas || '';
+  $('#fEstado').value = e.estado || 'operativo';
+  $('#fFecha').value = e.fechaRegistro ? e.fechaRegistro.slice(0, 10) : hoyISO();
+  $('#avisoDuplicado').hidden = true;
+  mostrarVista('formulario');
+  $('#btnGuardar').textContent = '💾 Guardar cambios';
+  setEstadoFoto();
+  // Cargar la foto existente
+  if (e.tieneFoto) {
+    idbGet(id).then((blob) => {
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        fotoDataUrl = url; // se mantiene como vista previa
+        $('#previewFoto').src = url;
+        $('#previewFoto').hidden = false;
+        $('#sinFoto').hidden = true;
+        actualizarControlesFoto();
+      }
+    }).catch(() => {});
+  }
+}
+
+function setEstadoFoto() {
+  const sinFoto = $('#sinFoto');
+  const preview = $('#previewFoto');
+  const camara = $('#camara');
+  if (fotoDataUrl) {
+    sinFoto.hidden = true;
+    camara.hidden = true;
+    preview.hidden = false;
+    preview.src = fotoDataUrl;
+  } else {
+    sinFoto.hidden = false;
+    camara.hidden = true;
+    preview.hidden = true;
+    preview.removeAttribute('src');
+  }
+  actualizarControlesFoto();
+}
+
+function actualizarControlesFoto() {
+  const tieneFoto = !!fotoDataUrl;
+  const camaraActiva = !!streamCamara;
+  $('#btnCamara').hidden = camaraActiva;
+  $('#btnSubir').hidden = camaraActiva;
+  $('#btnCapturar').hidden = !camaraActiva;
+  $('#btnCancelarCamara').hidden = !camaraActiva;
+  $('#btnQuitarFoto').hidden = !tieneFoto || camaraActiva;
+  $('#btnOcr').hidden = !tieneFoto || camaraActiva;
+  $('#detectados').hidden = !tieneFoto || camaraActiva || $('#chips').children.length === 0;
+}
+
+$('#btnCancelar').addEventListener('click', () => {
+  limpiarFormulario();
+  mostrarVista('inventario');
+});
+
+/* ---------------- Cámara ---------------- */
+async function iniciarCamara() {
+  if (streamCamara) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast('Tu navegador no permite usar la cámara. Usa “Subir foto”.', 'error');
+    return;
+  }
+  try {
+    streamCamara = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1280 } },
+      audio: false,
+    });
+    const video = $('#camara');
+    video.srcObject = streamCamara;
+    await video.play();
+    $('#sinFoto').hidden = true;
+    $('#previewFoto').hidden = true;
+    video.hidden = false;
+    actualizarControlesFoto();
+    toast('Enfoca la etiqueta y captura la foto');
+  } catch (err) {
+    toast('No se pudo abrir la cámara: ' + (err && err.message ? err.message : 'permiso denegado'), 'error');
+  }
+}
+
+function pararCamara() {
+  if (streamCamara) {
+    streamCamara.getTracks().forEach((t) => t.stop());
+    streamCamara = null;
+  }
+  $('#camara').srcObject = null;
+  $('#camara').hidden = true;
+  if (!fotoDataUrl) $('#sinFoto').hidden = false;
+  actualizarControlesFoto();
+}
+
+function capturarFoto() {
+  const video = $('#camara');
+  if (!streamCamara || !video.videoWidth) return;
+  const max = 1280;
+  const escala = Math.min(1, max / Math.max(video.videoWidth, video.videoHeight));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(video.videoWidth * escala);
+  canvas.height = Math.round(video.videoHeight * escala);
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.78);
+  pararCamara();
+  setFoto(dataUrl);
+}
+
+$('#btnCamara').addEventListener('click', iniciarCamara);
+$('#btnCapturar').addEventListener('click', capturarFoto);
+$('#btnCancelarCamara').addEventListener('click', pararCamara);
+$('#btnQuitarFoto').addEventListener('click', () => {
+  fotoDataUrl = null;
+  fotoEsNueva = false;
+  $('#chips').innerHTML = '';
+  setEstadoFoto();
+});
+
+/* ---------------- Subir foto ---------------- */
+$('#btnSubir').addEventListener('click', () => $('#archivoFoto').click());
+$('#archivoFoto').addEventListener('change', async (ev) => {
+  const archivo = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if (!archivo) return;
+  if (!archivo.type.startsWith('image/')) {
+    toast('El archivo debe ser una imagen', 'error');
+    return;
+  }
+  try {
+    const dataUrl = await reducirImagen(archivo);
+    setFoto(dataUrl);
+  } catch {
+    toast('No se pudo leer la imagen', 'error');
+  }
+});
+
+function reducirImagen(archivo) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(archivo);
+    img.onload = () => {
+      const max = 1280;
+      const escala = Math.min(1, max / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * escala);
+      canvas.height = Math.round(img.height * escala);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.78));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('imagen')); };
+    img.src = url;
+  });
+}
+
+function setFoto(dataUrl) {
+  fotoDataUrl = dataUrl;
+  fotoEsNueva = true;
+  $('#chips').innerHTML = '';
+  setEstadoFoto();
+  detectarCodigos(dataUrl);
+}
+
+/* ---------------- Detección de códigos de barras / QR ---------------- */
+const RE_MAC = /^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/;
+
+async function detectarCodigos(dataUrl) {
+  if (!('BarcodeDetector' in window)) return;
+  try {
+    const img = await cargarImagen(dataUrl);
+    const detector = new BarcodeDetector();
+    const codigos = await detector.detect(img);
+    const valores = [...new Set(codigos.map((c) => c.rawValue).filter(Boolean))];
+    if (valores.length === 0) return;
+
+    $('#chips').innerHTML = valores.map((v) => {
+      const esMac = RE_MAC.test(v.trim());
+      return `<span class="chip">${esc(v)}` +
+        `<button data-llenar="serial" title="Usar como número de serie">Serie</button>` +
+        (esMac ? `<button data-llenar="mac" title="Usar como dirección MAC">MAC</button>` : '') +
+        `</span>`;
+    }).join('');
+    actualizarControlesFoto();
+
+    $$('#chips button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const valor = btn.closest('.chip').childNodes[0].textContent.trim();
+        if (btn.dataset.llenar === 'serial') $('#fSerial').value = valor;
+        else $('#fMac').value = formatearMac(valor);
+        toast('Campo rellenado');
+      });
+    });
+
+    // Relleno automático solo si hay un único valor claro
+    const soloMac = valores.every((v) => RE_MAC.test(v.trim()));
+    if (valores.length === 1 && !soloMac && !$('#fSerial').value) {
+      $('#fSerial').value = valores[0];
+      toast('Serie detectada automáticamente ✅');
+    } else if (valores.length === 1 && soloMac && !$('#fMac').value) {
+      $('#fMac').value = formatearMac(valores[0]);
+      toast('MAC detectada automáticamente ✅');
+    }
+  } catch {
+    // BarcodeDetector puede fallar en algunas imágenes; se ignora
+  }
+}
+
+function cargarImagen(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+/* ---------------- OCR con Tesseract (requiere internet la 1ª vez) ---------------- */
+let ocrCargado = false;
+let workerOcr = null;
+
+$('#btnOcr').addEventListener('click', async () => {
+  if (!fotoDataUrl) return;
+  const btn = $('#btnOcr');
+  btn.disabled = true;
+  btn.textContent = '⏳ Leyendo texto… (la 1ª vez descarga el modelo)';
+  try {
+    if (!ocrCargado) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('No se pudo descargar Tesseract (¿sin internet?)'));
+        document.head.appendChild(s);
+      });
+      ocrCargado = true;
+    }
+    if (!workerOcr) workerOcr = await Tesseract.createWorker('spa+eng');
+    const { data } = await workerOcr.recognize(await cargarImagen(fotoDataUrl));
+    const lineas = [...new Set(
+      (data.text || '').split('\n').map((l) => l.trim()).filter((l) => l.length >= 4)
+    )];
+    if (lineas.length === 0) {
+      toast('No se encontró texto legible', 'error');
+    } else {
+      mostrarModal(`
+        <h3>🔍 Texto detectado</h3>
+        <p>Haz clic en una línea para copiarla al número de serie:</p>
+        <div class="lista-ocr">
+          ${lineas.map((l) => `<button type="button">${esc(l)}</button>`).join('')}
+        </div>
+        <div class="modal-botones"><button class="btn" id="modalCerrarOcr">Cerrar</button></div>`);
+      $$('#modalContenido .lista-ocr button').forEach((b) => {
+        b.addEventListener('click', () => {
+          $('#fSerial').value = b.textContent.trim();
+          cerrarModal();
+          toast('Número de serie rellenado');
+        });
+      });
+      $('#modalCerrarOcr').addEventListener('click', cerrarModal);
+    }
+  } catch (err) {
+    toast(err && err.message ? err.message : 'Error con el OCR', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Leer texto (OCR)';
+  }
+});
+
+/* ---------------- MAC: formato automático ---------------- */
+function formatearMac(texto) {
+  const hex = texto.toUpperCase().replace(/[^0-9A-Fa-f]/g, '').slice(0, 12);
+  return hex.replace(/(.{2})(?=.)/g, '$1:').toUpperCase();
+}
+
+$('#fMac').addEventListener('input', () => {
+  $('#fMac').value = formatearMac($('#fMac').value);
+});
+
+/* ---------------- Guardar equipo ---------------- */
+$('#formEquipo').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const datos = {
+    serial: $('#fSerial').value.trim(),
+    mac: $('#fMac').value.trim(),
+    tipo: $('#fTipo').value.trim(),
+    marca: $('#fMarca').value.trim(),
+    modelo: $('#fModelo').value.trim(),
+    ubicacion: $('#fUbicacion').value.trim(),
+    estado: $('#fEstado').value,
+    notas: $('#fNotas').value.trim(),
+    fechaRegistro: $('#fFecha').value || hoyISO(),
+  };
+
+  if (!datos.serial && !datos.mac && !datos.tipo && !datos.marca) {
+    toast('Escribe al menos el número de serie, la MAC o el tipo/marca', 'error');
+    return;
+  }
+  if (datos.mac && !RE_MAC.test(datos.mac)) {
+    toast('La dirección MAC no parece válida (formato AA:BB:CC:DD:EE:FF)', 'error');
+    return;
+  }
+
+  // Aviso de duplicados (serie o MAC ya registrados en otro equipo)
+  const duplicado = equipos.find((e) =>
+    e.id !== editandoId &&
+    ((datos.serial && e.serial && normalizar(e.serial) === normalizar(datos.serial)) ||
+     (datos.mac && e.mac && normalizar(e.mac) === normalizar(datos.mac)))
+  );
+  if (duplicado) {
+    if (!confirm('Ya existe un equipo con la misma serie o MAC:\n' + duplicado.serial + ' / ' + duplicado.mac + '\n\n¿Guardar de todos modos?')) return;
+  }
+
+  const btn = $('#btnGuardar');
+  btn.disabled = true;
+  try {
+    if (editandoId) {
+      const idx = equipos.findIndex((e) => e.id === editandoId);
+      if (idx === -1) return;
+      const anterior = equipos[idx];
+      if (fotoEsNueva) {
+        if (anterior.tieneFoto) { try { await idbDelete(editandoId); } catch {} }
+        if (fotoDataUrl) await idbPut(editandoId, dataUrlToBlob(fotoDataUrl));
+      }
+      equipos[idx] = { ...anterior, ...datos, tieneFoto: fotoEsNueva ? !!fotoDataUrl : anterior.tieneFoto, fechaActualizacion: new Date().toISOString() };
+    } else {
+      const id = uid();
+      if (fotoDataUrl) await idbPut(id, dataUrlToBlob(fotoDataUrl));
+      equipos.unshift({ id, ...datos, tieneFoto: !!fotoDataUrl, fechaActualizacion: new Date().toISOString() });
+    }
+    guardar();
+    toast(editandoId ? 'Cambios guardados ✅' : 'Equipo registrado ✅');
+    limpiarFormulario();
+    mostrarVista('inventario');
+  } catch (err) {
+    toast('No se pudo guardar: ' + (err && err.message ? err.message : err), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function dataUrlToBlob(dataUrl) {
+  const [meta, datos] = dataUrl.split(',');
+  const mime = (meta.match(/data:(.*?);/) || [])[1] || 'image/jpeg';
+  const bin = meta.includes(';base64') ? atob(datos) : decodeURIComponent(datos);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+/* ---------------- Respaldo (exportar / importar JSON) ---------------- */
+$('#btnExportar').addEventListener('click', async () => {
+  const respaldo = { version: 1, exportadoEl: new Date().toISOString(), equipos: [] };
+  for (const e of equipos) {
+    const item = { ...e };
+    delete item.tieneFoto;
+    if (e.tieneFoto) {
+      try {
+        const blob = await idbGet(e.id);
+        if (blob) item.foto = await blobToDataUrl(blob);
+      } catch {}
+    }
+    respaldo.equipos.push(item);
+  }
+  const fecha = new Date().toISOString().slice(0, 10);
+  descargar('inventario-respaldo-' + fecha + '.json', JSON.stringify(respaldo, null, 2), 'application/json');
+  toast('Respaldo descargado 📦');
+});
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = reject;
+    fr.readAsDataURL(blob);
+  });
+}
+
+$('#btnImportar').addEventListener('click', () => {
+  mostrarModal(`
+    <h3>📥 Importar respaldo</h3>
+    <p>Selecciona un archivo <b>.json</b> de respaldo creado con “📤 Respaldo”.</p>
+    <div class="modal-botones">
+      <button class="btn" id="modalImportarElegir">Elegir archivo…</button>
+      <button class="btn" id="modalCancelarImport">Cancelar</button>
+    </div>`);
+  $('#modalCancelarImport').addEventListener('click', cerrarModal);
+  $('#modalImportarElegir').addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = () => {
+      const archivo = input.files && input.files[0];
+      if (!archivo) return;
+      const fr = new FileReader();
+      fr.onload = async () => {
+        try {
+          const datos = JSON.parse(fr.result);
+          const lista = Array.isArray(datos) ? datos : (datos.equipos || []);
+          if (!Array.isArray(lista)) throw new Error('formato no válido');
+          if (lista.length === 0) { toast('El archivo no tiene equipos', 'error'); return; }
+          preguntarEstrategiaImportacion(lista);
+        } catch {
+          toast('El archivo no es un respaldo válido', 'error');
+        }
+      };
+      fr.readAsText(archivo);
+    };
+    input.click();
+    cerrarModal();
+  });
+});
+
+function preguntarEstrategiaImportacion(lista) {
+  mostrarModal(`
+    <h3>Importar ${lista.length} equipo(s)</h3>
+    <p>¿Cómo quieres combinarlos con lo que ya tienes?</p>
+    <div class="modal-botones">
+      <button class="btn" id="importCombinar">➕ Combinar</button>
+      <button class="btn btn-peligro" id="importReemplazar">♻️ Reemplazar todo</button>
+    </div>`);
+  $('#importCombinar').addEventListener('click', () => importarEquipos(lista, false));
+  $('#importReemplazar').addEventListener('click', () => importarEquipos(lista, true));
+}
+
+async function importarEquipos(lista, reemplazar) {
+  cerrarModal();
+  try {
+    if (reemplazar) {
+      await idbLimpiar();
+      equipos = [];
+    }
+    let nuevos = 0;
+    for (const item of lista) {
+      const { foto, ...meta } = item;
+      if (!meta.id) meta.id = uid();
+      if (reemplazar || !equipos.some((e) => e.id === meta.id)) {
+        if (foto) {
+          try { await idbPut(meta.id, dataUrlToBlob(foto)); meta.tieneFoto = true; } catch { meta.tieneFoto = false; }
+        } else {
+          meta.tieneFoto = false;
+        }
+        if (!meta.fechaRegistro) meta.fechaRegistro = hoyISO();
+        meta.fechaActualizacion = new Date().toISOString();
+        equipos.push(meta);
+        nuevos++;
+      }
+    }
+    guardar();
+    render();
+    toast(reemplazar ? 'Inventario reemplazado ✅' : nuevos + ' equipo(s) importados ✅');
+  } catch (err) {
+    toast('Error al importar: ' + (err && err.message ? err.message : err), 'error');
+  }
+}
+
+/* ---------------- Exportar CSV ---------------- */
+$('#btnCsv').addEventListener('click', () => {
+  const cabeceras = ['Tipo', 'Marca', 'Modelo', 'Número de serie', 'Dirección MAC', 'Ubicación', 'Estado', 'Fecha de registro', 'Notas'];
+  const filas = filtrar().map((e) => [
+    e.tipo, e.marca, e.modelo, e.serial, e.mac, e.ubicacion,
+    (ESTADOS[e.estado] || {}).texto || e.estado,
+    formatearFecha(e.fechaRegistro),
+    e.notas,
+  ]);
+  const csv = '\uFEFF' + [cabeceras, ...filas]
+    .map((f) => f.map((c) => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(';'))
+    .join('\r\n');
+  descargar('inventario-' + new Date().toISOString().slice(0, 10) + '.csv', csv, 'text/csv;charset=utf-8');
+  toast('CSV descargado 📊');
+});
+
+/* ---------------- Datos de ejemplo ---------------- */
+$('#btnEjemplos').addEventListener('click', () => {
+  mostrarModal(`
+    <h3>✨ Cargar equipos de ejemplo</h3>
+    <p>Esto agrega ${DEMO_EQUIPOS.length} equipos de muestra (con fotos ilustrativas) para que veas cómo funciona. Puedes eliminarlos después.</p>
+    <div class="modal-botones">
+      <button class="btn" id="modalDemo">Cargar ejemplos</button>
+      <button class="btn" id="modalDemoCancel">Cancelar</button>
+    </div>`);
+  $('#modalDemoCancel').addEventListener('click', cerrarModal);
+  $('#modalDemo').addEventListener('click', async () => {
+    cerrarModal();
+    let agregados = 0;
+    for (const d of DEMO_EQUIPOS) {
+      const id = uid();
+      const foto = demoFoto(d.tipo, d.marca + ' ' + d.modelo);
+      try { await idbPut(id, dataUrlToBlob(foto)); } catch {}
+      equipos.unshift({ id, ...d, tieneFoto: true, fechaActualizacion: new Date().toISOString() });
+      agregados++;
+    }
+    guardar();
+    render();
+    toast(agregados + ' equipos de ejemplo cargados ✨');
+  });
+});
+
+const DEMO_EQUIPOS = [
+  { serial: 'X3K2-9F7Q-1TZ4', mac: 'A4:5E:60:12:9B:3F', tipo: 'Laptop', marca: 'HP', modelo: 'ProBook 450 G8', ubicacion: 'Oficina 1', estado: 'operativo', notas: 'Entrega a Laura Pérez', fechaRegistro: '2026-07-10' },
+  { serial: 'S/N 5CG2046XLM', mac: '3C:52:82:44:D1:0E', tipo: 'Monitor', marca: 'Dell', modelo: 'P2422H', ubicacion: 'Oficina 2', estado: 'operativo', notas: '', fechaRegistro: '2026-07-18' },
+  { serial: 'CNC-88213-RT45', mac: 'B8:27:EB:0A:66:21', tipo: 'Router', marca: 'TP-Link', modelo: 'Archer C6', ubicacion: 'Sala de juntas', estado: 'reparacion', notas: 'Se reinicia solo', fechaRegistro: '2026-06-02' },
+  { serial: 'MX-2026-1148', mac: '', tipo: 'Impresora', marca: 'Epson', modelo: 'EcoTank L3250', ubicacion: 'Recepción', estado: 'operativo', notas: 'Tinta negra al 60%', fechaRegistro: '2026-05-25' },
+  { serial: 'IP-2088-77', mac: '00:1A:2B:3C:4D:5E', tipo: 'Desktop', marca: 'Lenovo', modelo: 'ThinkCentre M70q', ubicacion: 'Caja fuerte', estado: 'prestamo', notas: 'Prestada a contabilidad', fechaRegistro: '2026-04-11' },
+  { serial: 'TV-55X-0931', mac: '9C:8B:F2:71:40:AA', tipo: 'Monitor', marca: 'Samsung', modelo: 'Smart Monitor M7', ubicacion: 'Sala de juntas', estado: 'baja', notas: 'Panel dañado', fechaRegistro: '2025-12-03' },
+];
+
+function demoFoto(tipo, etiqueta) {
+  const colores = [
+    ['#4f46e5', '#7c3aed'], ['#0ea5e9', '#2563eb'], ['#059669', '#0d9488'], ['#d97706', '#dc2626'], ['#db2777', '#7c3aed'],
+  ];
+  const [c1, c2] = colores[Math.abs(etiqueta.length) % colores.length];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/>
+    </linearGradient></defs>
+    <rect width="800" height="600" fill="url(#g)"/>
+    <text x="400" y="300" font-size="130" text-anchor="middle" dominant-baseline="middle">${emojiTipo(tipo)}</text>
+    <text x="400" y="430" font-size="40" text-anchor="middle" fill="rgba(255,255,255,.9)" font-family="Arial">${esc(etiqueta)}</text>
+    <text x="400" y="490" font-size="26" text-anchor="middle" fill="rgba(255,255,255,.55)" font-family="Arial">EJEMPLO — foto ilustrativa</text>
+  </svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+/* ---------------- Filtros y búsqueda ---------------- */
+['busqueda', 'filtroTipo', 'filtroEstado', 'orden'].forEach((id) => {
+  $('#' + id).addEventListener('input', render);
+});
+
+/* ---------------- Inicio ---------------- */
+(function init() {
+  const temaGuardado = (() => { try { return localStorage.getItem(TEMA_KEY); } catch { return null; } })();
+  aplicarTema(temaGuardado === 'oscuro' ? 'oscuro' : 'claro');
+  cargar();
+  $('#fFecha').value = hoyISO();
+  setEstadoFoto();
+  render();
+})();
+</script>
+</body>
+</html>
