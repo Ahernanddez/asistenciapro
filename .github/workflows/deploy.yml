@@ -36,14 +36,15 @@ jobs:
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: Preparar el sitio (solo archivos públicos)
+        run: |
+          mkdir -p _site
+          cp index.html README.md _site/
+
       - name: Publicar el sitio (artefacto)
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
-          exclude: |
-            .github
-            .freebuff
-            .git
+          path: _site
 
       - name: Desplegar
         id: deployment
