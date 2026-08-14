@@ -36,11 +36,24 @@ No necesita instalar nada: corre en cualquier navegador moderno (Chrome o Edge r
 - Si la cámara no se abre al abrir el archivo directo, sírvela con cualquier servidor estático (VS Code "Live Server", `python -m http.server`, etc.).
 - El OCR (Tesseract.js) se descarga desde un CDN la primera vez que se usa; sin internet esa función no está disponible (el resto funciona normal).
 
+## Despliegue en GitHub Pages (automático)
+
+El repo incluye un flujo de GitHub Actions (`.github/workflows/deploy.yml`) que publica la app en GitHub Pages con **cada push a `main`**, sin pasos manuales.
+
+Configuración de una sola vez:
+
+1. Sube el repo a GitHub y, en **Settings → Pages**, elige *Source:* **GitHub Actions**.
+2. Con cada `git push` a `main`, la app queda publicada en `https://TUUSUARIO.github.io/<repo>/` en ~1 minuto.
+3. También puedes publicar a mano desde la pestaña **Actions → Desplegar en GitHub Pages → Run workflow**.
+
+> 💡 Los datos siguen viviendo en el navegador de cada dispositivo. Entre dispositivos usa **📤 Respaldo / 📥 Importar**.
+
 ## Estructura
 
 ```
-index.html   → aplicación completa (interfaz + diseño + lógica) en un solo archivo
-README.md    → estas instrucciones
+index.html               → aplicación completa (interfaz + diseño + lógica) en un solo archivo
+README.md                → estas instrucciones
+.github/workflows/deploy.yml → despliegue automático a GitHub Pages
 ```
 
 Todo vive en `index.html`: puedes copiarlo a una USB, compartirlo o abrirlo desde cualquier carpeta.
