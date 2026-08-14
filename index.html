@@ -40,6 +40,9 @@
 
 * { box-sizing: border-box; }
 
+/* El atributo hidden debe ganar siempre, incluso sobre display:flex/block */
+[hidden] { display: none !important; }
+
 html { scroll-behavior: smooth; }
 
 body {
