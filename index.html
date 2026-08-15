@@ -1372,6 +1372,9 @@ let escannerActivo = false;
 let escannerReader = null;
 let escannerStream = null;
 let escannerDetectados = [];
+let escannerLoop = null;
+let escannerCanvas = null;
+let escannerCanvasCtx = null;
 
 function cargarZXing() {
   return new Promise((resolve, reject) => {
@@ -1415,27 +1418,77 @@ async function iniciarEscaneo() {
       const nombres = ['CODE_128', 'CODE_39', 'CODE_93', 'CODABAR', 'EAN_13', 'EAN_8', 'UPC_A', 'UPC_E', 'ITF', 'QR_CODE', 'DATA_MATRIX', 'AZTEC', 'PDF_417', 'PDF417'];
       const formatos = nombres.filter((k) => ZXing.BarcodeFormat[k] !== undefined).map((k) => ZXing.BarcodeFormat[k]);
       if (formatos.length) hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formatos);
+      // Busca más a fondo: clave para códigos borrosos, a distancia o con poca luz.
+      // Con los frames reducidos (abajo) ya no congela la interfaz.
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
     }
     escannerReader = new ZXing.BrowserMultiFormatReader(hints, 300);
-    escannerStream = await escannerReader.decodeFromConstraints(
-      { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
-      $('#escannerVideo'),
-      (resultado, error) => {
-        if (resultado && resultado.getText()) {
-          const fmt = resultado.getBarcodeFormat();
-          const nombre = (ZXing.BarcodeFormat && fmt !== undefined && ZXing.BarcodeFormat[fmt]) ? ZXing.BarcodeFormat[fmt] : '';
-          procesarCodigoEscaneado(resultado.getText(), nombre);
-        }
-      }
-    );
+    // Pedimos la cámara nosotros mismos para tener el stream y poder pararlo bien
+    escannerStream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+    });
+    const video = $('#escannerVideo');
+    video.srcObject = escannerStream;
+    try { await video.play(); } catch {}
     $('#escannerCargando').hidden = true;
     mostrarResolucionCamara();
+    escannerCanvas = document.createElement('canvas');
+    escannerCanvasCtx = escannerCanvas.getContext('2d', { willReadFrequently: true });
+    programarEscaneo();
   } catch (err) {
     escannerActivo = false;
     $('#escannerCargando').hidden = true;
     $('#escannerEstado').textContent = '❌ ' + (err && err.message ? err.message : 'No se pudo abrir la cámara');
     try { if (escannerReader) escannerReader.reset(); } catch {}
     escannerReader = null;
+    if (escannerStream) {
+      try { escannerStream.getTracks().forEach((t) => t.stop()); } catch {}
+      escannerStream = null;
+    }
+    $('#escannerVideo').srcObject = null;
+  }
+}
+
+// Bucle de escaneo. En vez de decodificar el frame completo (1080×1920 ≈ 2 MP,
+// lento y congela la interfaz en el móvil), copiamos el video a un canvas
+// reducido (lado largo ~800 px) y decodificamos ESE frame pequeño: ~5-10× más
+// rápido por intento, la interfaz sigue fluida y detecta códigos con fiabilidad.
+function programarEscaneo() {
+  if (!escannerActivo) return;
+  escannerLoop = setTimeout(() => {
+    escannerLoop = null;
+    if (!escannerActivo) return;
+    try { intentoEscaneo(); } catch (e) { /* frame ilegible: seguir con el siguiente */ }
+    programarEscaneo();
+  }, 200);
+}
+
+function intentoEscaneo() {
+  const video = $('#escannerVideo');
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh || !escannerReader || !escannerCanvas || !escannerCanvasCtx) return;
+  const largoMax = 800;
+  const escala = Math.min(1, largoMax / Math.max(vw, vh));
+  const cw = Math.max(1, Math.round(vw * escala));
+  const ch = Math.max(1, Math.round(vh * escala));
+  if (escannerCanvas.width !== cw || escannerCanvas.height !== ch) {
+    escannerCanvas.width = cw;
+    escannerCanvas.height = ch;
+  }
+  escannerCanvasCtx.drawImage(video, 0, 0, cw, ch);
+  const px = escannerCanvasCtx.getImageData(0, 0, cw, ch).data;
+  const luma = new Uint8ClampedArray(cw * ch);
+  for (let i = 0, p = 0; i < px.length; i += 4, p++) {
+    luma[p] = (px[i] * 299 + px[i + 1] * 587 + px[i + 2] * 114) / 1000;
+  }
+  const bitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.RGBLuminanceSource(luma, cw, ch)));
+  const resultado = escannerReader.reader.decodeWithState(bitmap);
+  if (resultado && resultado.getText()) {
+    const fmt = resultado.getBarcodeFormat();
+    const nombre = (ZXing.BarcodeFormat && fmt !== undefined && ZXing.BarcodeFormat[fmt]) ? ZXing.BarcodeFormat[fmt] : '';
+    procesarCodigoEscaneado(resultado.getText(), nombre);
   }
 }
 
@@ -1457,12 +1510,15 @@ function mostrarResolucionCamara() {
 
 function detenerEscaneo() {
   escannerActivo = false;
+  if (escannerLoop) { clearTimeout(escannerLoop); escannerLoop = null; }
   try { if (escannerReader) escannerReader.reset(); } catch {}
   if (escannerStream && escannerStream.getTracks) {
     escannerStream.getTracks().forEach((t) => t.stop());
   }
   escannerStream = null;
   escannerReader = null;
+  escannerCanvas = null;
+  escannerCanvasCtx = null;
   $('#escannerVideo').srcObject = null;
   $('#escannerFondo').hidden = true;
 }
