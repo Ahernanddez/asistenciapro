@@ -1412,13 +1412,14 @@ async function iniciarEscaneo() {
     await cargarZXing();
     escannerReader = new ZXing.BrowserMultiFormatReader();
     escannerStream = await escannerReader.decodeFromConstraints(
-      { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } } },
+      { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
       $('#escannerVideo'),
       (resultado, error) => {
         if (resultado && resultado.getText()) procesarCodigoEscaneado(resultado.getText());
       }
     );
     $('#escannerCargando').hidden = true;
+    mostrarResolucionCamara();
   } catch (err) {
     escannerActivo = false;
     $('#escannerCargando').hidden = true;
@@ -1426,6 +1427,19 @@ async function iniciarEscaneo() {
     try { if (escannerReader) escannerReader.reset(); } catch {}
     escannerReader = null;
   }
+}
+
+function mostrarResolucionCamara() {
+  const v = $('#escannerVideo');
+  const intento = () => {
+    if (!escannerActivo) return;
+    if (v.videoWidth > 0) {
+      $('#escannerEstado').textContent = '🔍 Buscando código… (cámara ' + v.videoWidth + '×' + v.videoHeight + ')';
+    } else {
+      setTimeout(intento, 200);
+    }
+  };
+  setTimeout(intento, 150);
 }
 
 function detenerEscaneo() {
