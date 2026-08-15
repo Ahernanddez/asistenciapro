@@ -474,6 +474,30 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--acento); ou
   0%, 100% { top: 32%; }
   50% { top: 68%; }
 }
+.escanner-torch {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 6;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, .55);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.escanner-torch[hidden] { display: none; }
+.escanner-torch.activa {
+  background: #ffd60a;
+  color: #000;
+  box-shadow: 0 0 12px rgba(255, 214, 10, .8);
+}
 .escanner-cargando {
   position: absolute;
   inset: 0;
@@ -610,6 +634,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--acento); ou
             <button type="button" id="btnCancelarCamara" class="btn" hidden>✖ Cancelar</button>
             <button type="button" id="btnQuitarFoto" class="btn btn-peligro" hidden>🗑 Quitar foto</button>
             <button type="button" id="btnOcr" class="btn" hidden>🔍 Leer texto (OCR)</button>
+            <button type="button" id="btnCodigos" class="btn" hidden>🔍 Buscar códigos</button>
           </div>
           <input type="file" id="archivoFoto" accept="image/*" hidden>
           <div id="detectados" class="detectados" hidden>
@@ -678,6 +703,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--acento); ou
       <video id="escannerVideo" autoplay playsinline muted></video>
       <div class="escanner-marco"></div>
       <div class="escanner-linea"></div>
+      <button id="escannerTorch" class="escanner-torch" type="button" title="Encender linterna" hidden>🔦</button>
       <div id="escannerCargando" class="escanner-cargando">⏳ Cargando lector…</div>
     </div>
     <div id="escannerEstado" class="escanner-estado">🔍 Buscando código…</div>
@@ -1149,6 +1175,7 @@ function actualizarControlesFoto() {
   $('#btnCancelarCamara').hidden = !camaraActiva;
   $('#btnQuitarFoto').hidden = !tieneFoto || camaraActiva;
   $('#btnOcr').hidden = !tieneFoto || camaraActiva;
+  $('#btnCodigos').hidden = !tieneFoto || camaraActiva;
   $('#detectados').hidden = !tieneFoto || camaraActiva || $('#chips').children.length === 0;
 }
 
@@ -1265,45 +1292,103 @@ function setFoto(dataUrl) {
 /* ---------------- Detección de códigos de barras / QR ---------------- */
 const RE_MAC = /^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/;
 
-async function detectarCodigos(dataUrl) {
-  if (!('BarcodeDetector' in window)) return;
-  try {
-    const img = await cargarImagen(dataUrl);
-    const detector = new BarcodeDetector();
-    const codigos = await detector.detect(img);
-    const valores = [...new Set(codigos.map((c) => c.rawValue).filter(Boolean))];
-    if (valores.length === 0) return;
+// Un valor se considera MAC si tiene separadores o son 12 dígitos hex sin separar
+const esValorMac = (v) => RE_MAC.test(v.trim()) || /^[0-9A-Fa-f]{12}$/.test(v.trim());
 
-    $('#chips').innerHTML = valores.map((v) => {
-      const esMac = RE_MAC.test(v.trim());
-      return `<span class="chip">${esc(v)}` +
-        `<button data-llenar="serial" title="Usar como número de serie">Serie</button>` +
-        (esMac ? `<button data-llenar="mac" title="Usar como dirección MAC">MAC</button>` : '') +
-        `</span>`;
-    }).join('');
-    actualizarControlesFoto();
+// Muestra los códigos detectados como chips y rellena serie/MAC si hay un único valor claro
+function mostrarCodigosEncontrados(valores) {
+  const unicos = [...new Set(valores.map((v) => String(v).trim()).filter(Boolean))];
+  if (unicos.length === 0) return [];
 
-    $$('#chips button').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const valor = btn.closest('.chip').childNodes[0].textContent.trim();
-        if (btn.dataset.llenar === 'serial') $('#fSerial').value = valor;
-        else $('#fMac').value = formatearMac(valor);
-        toast('Campo rellenado');
-      });
+  $('#chips').innerHTML = unicos.map((v) => {
+    const esMac = esValorMac(v);
+    return `<span class="chip">${esc(v)}` +
+      `<button data-llenar="serial" title="Usar como número de serie">Serie</button>` +
+      (esMac ? `<button data-llenar="mac" title="Usar como dirección MAC">MAC</button>` : '') +
+      `</span>`;
+  }).join('');
+  actualizarControlesFoto();
+
+  $$('#chips button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const valor = btn.closest('.chip').childNodes[0].textContent.trim();
+      if (btn.dataset.llenar === 'serial') $('#fSerial').value = valor;
+      else $('#fMac').value = formatearMac(valor);
+      toast('Campo rellenado');
     });
+  });
 
-    // Relleno automático solo si hay un único valor claro
-    const soloMac = valores.every((v) => RE_MAC.test(v.trim()));
-    if (valores.length === 1 && !soloMac && !$('#fSerial').value) {
-      $('#fSerial').value = valores[0];
-      toast('Serie detectada automáticamente ✅');
-    } else if (valores.length === 1 && soloMac && !$('#fMac').value) {
-      $('#fMac').value = formatearMac(valores[0]);
-      toast('MAC detectada automáticamente ✅');
-    }
-  } catch {
-    // BarcodeDetector puede fallar en algunas imágenes; se ignora
+  // Relleno automático solo si hay un único valor claro
+  const soloMac = unicos.every((v) => esValorMac(v));
+  if (unicos.length === 1 && !soloMac && !$('#fSerial').value) {
+    $('#fSerial').value = unicos[0];
+    toast('Serie detectada automáticamente ✅');
+  } else if (unicos.length === 1 && soloMac && !$('#fMac').value) {
+    $('#fMac').value = formatearMac(unicos[0]);
+    toast('MAC detectada automáticamente ✅');
   }
+  return unicos;
+}
+
+// Decodifica códigos de barras de una foto con ZXing (funciona en cualquier navegador,
+// incluidos iOS y los que no tienen BarcodeDetector). Usa el mismo pipeline reducido
+// (lado largo ~800 px) que el escáner en vivo.
+function decodificarFotoZxing(dataUrl) {
+  return (async () => {
+    await cargarZXing();
+    const img = await cargarImagen(dataUrl);
+    const largoMax = 800;
+    const escala = Math.min(1, largoMax / Math.max(img.width, img.height));
+    const cw = Math.max(1, Math.round(img.width * escala));
+    const ch = Math.max(1, Math.round(img.height * escala));
+    const canvas = document.createElement('canvas');
+    canvas.width = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, cw, ch);
+    const px = ctx.getImageData(0, 0, cw, ch).data;
+    const luma = new Uint8ClampedArray(cw * ch);
+    for (let i = 0, p = 0; i < px.length; i += 4, p++) {
+      luma[p] = (px[i] * 299 + px[i + 1] * 587 + px[i + 2] * 114) / 1000;
+    }
+    const hints = new Map();
+    if (ZXing.DecodeHintType) {
+      const nombres = ['CODE_128', 'CODE_39', 'CODE_93', 'CODABAR', 'EAN_13', 'EAN_8', 'UPC_A', 'UPC_E', 'ITF', 'QR_CODE', 'DATA_MATRIX', 'AZTEC', 'PDF_417', 'PDF417'];
+      const formatos = nombres.filter((k) => ZXing.BarcodeFormat[k] !== undefined).map((k) => ZXing.BarcodeFormat[k]);
+      if (formatos.length) hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formatos);
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    }
+    const reader = new ZXing.BrowserMultiFormatReader(hints, 300);
+    const bitmap = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.RGBLuminanceSource(luma, cw, ch)));
+    const resultado = reader.reader.decodeWithState(bitmap);
+    return resultado && resultado.getText() ? String(resultado.getText()).trim() : null;
+  })();
+}
+
+async function detectarCodigos(dataUrl) {
+  const encontrados = [];
+  // 1) BarcodeDetector nativo (rápido, Chrome/Android)
+  if ('BarcodeDetector' in window) {
+    try {
+      const img = await cargarImagen(dataUrl);
+      const detector = new BarcodeDetector();
+      const codigos = await detector.detect(img);
+      encontrados.push(...codigos.map((c) => c.rawValue).filter(Boolean));
+    } catch {
+      // BarcodeDetector puede fallar en algunas imágenes; se ignora
+    }
+  }
+  // 2) ZXing como respaldo universal (o si el nativo no encontró nada)
+  if (encontrados.length === 0) {
+    try {
+      const valor = await decodificarFotoZxing(dataUrl);
+      if (valor) encontrados.push(valor);
+    } catch {
+      // sin códigos o sin internet para descargar ZXing
+    }
+  }
+  if (encontrados.length) return mostrarCodigosEncontrados(encontrados);
+  return [];
 }
 
 function cargarImagen(src) {
@@ -1314,6 +1399,22 @@ function cargarImagen(src) {
     img.src = src;
   });
 }
+
+$('#btnCodigos').addEventListener('click', async () => {
+  if (!fotoDataUrl) return;
+  const btn = $('#btnCodigos');
+  btn.disabled = true;
+  btn.textContent = '⏳ Buscando códigos…';
+  try {
+    const encontrados = await detectarCodigos(fotoDataUrl);
+    if (encontrados.length === 0) toast('No se encontraron códigos en la foto', 'error');
+  } catch {
+    toast('No se pudo analizar la foto', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Buscar códigos';
+  }
+});
 
 /* ---------------- OCR con Tesseract (requiere internet la 1ª vez) ---------------- */
 let ocrCargado = false;
@@ -1375,6 +1476,7 @@ let escannerDetectados = [];
 let escannerLoop = null;
 let escannerCanvas = null;
 let escannerCanvasCtx = null;
+let linternaActiva = false;
 
 function cargarZXing() {
   return new Promise((resolve, reject) => {
@@ -1431,6 +1533,7 @@ async function iniciarEscaneo() {
     const video = $('#escannerVideo');
     video.srcObject = escannerStream;
     try { await video.play(); } catch {}
+    configurarLinterna();
     $('#escannerCargando').hidden = true;
     mostrarResolucionCamara();
     escannerCanvas = document.createElement('canvas');
@@ -1508,8 +1611,49 @@ function mostrarResolucionCamara() {
   setTimeout(intento, 150);
 }
 
+// Linterna: se muestra solo si la cámara soporta torch (p. ej. cámara trasera
+// de Android/Chrome). Se enciende/apaga con applyConstraints sobre la pista.
+function configurarLinterna() {
+  const btn = $('#escannerTorch');
+  if (!btn) return;
+  btn.classList.remove('activa');
+  btn.hidden = true;
+  btn.onclick = null;
+  linternaActiva = false;
+  try {
+    const track = escannerStream && escannerStream.getVideoTracks()[0];
+    if (track && track.getCapabilities && track.getCapabilities().torch) {
+      btn.hidden = false;
+      btn.title = 'Encender linterna';
+      btn.onclick = () => alternarLinterna(track, btn);
+    }
+  } catch { /* sin soporte: el botón queda oculto */ }
+}
+
+function alternarLinterna(track, btn) {
+  linternaActiva = !linternaActiva;
+  track.applyConstraints({ advanced: [{ torch: linternaActiva }] })
+    .then(() => {
+      btn.classList.toggle('activa', linternaActiva);
+      btn.title = linternaActiva ? 'Apagar linterna' : 'Encender linterna';
+      toast(linternaActiva ? '🔦 Linterna encendida' : '🔦 Linterna apagada');
+    })
+    .catch(() => {
+      linternaActiva = false;
+      toast('❌ Esta cámara no permite la linterna');
+    });
+}
+
 function detenerEscaneo() {
   escannerActivo = false;
+  // apaga la linterna si quedó encendida
+  try {
+    const track = escannerStream && escannerStream.getVideoTracks()[0];
+    if (track && linternaActiva) track.applyConstraints({ advanced: [{ torch: false }] }).catch(() => {});
+  } catch {}
+  linternaActiva = false;
+  const btn = $('#escannerTorch');
+  if (btn) { btn.classList.remove('activa'); btn.onclick = null; btn.hidden = true; }
   if (escannerLoop) { clearTimeout(escannerLoop); escannerLoop = null; }
   try { if (escannerReader) escannerReader.reset(); } catch {}
   if (escannerStream && escannerStream.getTracks) {
