@@ -425,8 +425,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--acento); ou
   inset: 0;
   background: rgba(8, 10, 16, .92);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow-y: auto;
   z-index: 70;
   padding: 16px;
   animation: aparecer .15s ease;
@@ -439,6 +438,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--acento); ou
   width: 100%;
   padding: 18px;
   text-align: center;
+  margin: auto;
 }
 .escanner h3 { margin: 0 0 6px; font-size: 17px; }
 .escanner-sub { margin: 0 0 12px; color: var(--texto-suave); font-size: 13px; }
@@ -1435,6 +1435,9 @@ function mostrarResolucionCamara() {
     if (!escannerActivo) return;
     if (v.videoWidth > 0) {
       $('#escannerEstado').textContent = '🔍 Buscando código… (cámara ' + v.videoWidth + '×' + v.videoHeight + ')';
+      // Ajusta el visor a la orientación real de la cámara para no recortar la imagen
+      const cont = v.closest('.escanner-camara');
+      if (cont) cont.style.aspectRatio = v.videoWidth + ' / ' + v.videoHeight;
     } else {
       setTimeout(intento, 200);
     }
