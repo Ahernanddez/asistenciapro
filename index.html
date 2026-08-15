@@ -1410,12 +1410,22 @@ async function iniciarEscaneo() {
   escannerActivo = true;
   try {
     await cargarZXing();
-    escannerReader = new ZXing.BrowserMultiFormatReader();
+    const hints = new Map();
+    if (ZXing.DecodeHintType) {
+      const nombres = ['CODE_128', 'CODE_39', 'CODE_93', 'CODABAR', 'EAN_13', 'EAN_8', 'UPC_A', 'UPC_E', 'ITF', 'QR_CODE', 'DATA_MATRIX', 'AZTEC', 'PDF_417', 'PDF417'];
+      const formatos = nombres.filter((k) => ZXing.BarcodeFormat[k] !== undefined).map((k) => ZXing.BarcodeFormat[k]);
+      if (formatos.length) hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formatos);
+    }
+    escannerReader = new ZXing.BrowserMultiFormatReader(hints, 300);
     escannerStream = await escannerReader.decodeFromConstraints(
       { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
       $('#escannerVideo'),
       (resultado, error) => {
-        if (resultado && resultado.getText()) procesarCodigoEscaneado(resultado.getText());
+        if (resultado && resultado.getText()) {
+          const fmt = resultado.getBarcodeFormat();
+          const nombre = (ZXing.BarcodeFormat && fmt !== undefined && ZXing.BarcodeFormat[fmt]) ? ZXing.BarcodeFormat[fmt] : '';
+          procesarCodigoEscaneado(resultado.getText(), nombre);
+        }
       }
     );
     $('#escannerCargando').hidden = true;
@@ -1457,13 +1467,14 @@ function detenerEscaneo() {
   $('#escannerFondo').hidden = true;
 }
 
-function procesarCodigoEscaneado(valor) {
+function procesarCodigoEscaneado(valor, formato = '') {
   const v = String(valor).trim();
   if (!v || escannerDetectados.includes(v)) return;
   escannerDetectados.push(v);
   try { if (navigator.vibrate) navigator.vibrate(80); } catch {}
   const esMac = RE_MAC.test(v) || /^[0-9A-Fa-f]{12}$/.test(v);
   const macFormateada = esMac ? formatearMac(v) : v;
+  const etiqueta = formato ? formato.replace(/_/g, ' ') : '';
   if (esMac && !$('#fMac').value) $('#fMac').value = macFormateada;
   else if (!esMac && !$('#fSerial').value) $('#fSerial').value = v;
 
@@ -1483,8 +1494,9 @@ function procesarCodigoEscaneado(valor) {
     chip.appendChild(bMac);
   }
   $('#escannerChips').appendChild(chip);
-  $('#escannerEstado').textContent = '✅ ' + (esMac ? 'MAC: ' + macFormateada : 'Serie: ' + v);
-  toast((esMac ? 'MAC detectada: ' + macFormateada : 'Serie detectada: ' + v) + ' ✅');
+  const prefijo = etiqueta ? etiqueta + ': ' : '';
+  $('#escannerEstado').textContent = '✅ ' + prefijo + (esMac ? macFormateada + ' (MAC)' : v + ' (Serie)');
+  toast((etiqueta ? etiqueta + ' · ' : '') + (esMac ? 'MAC detectada: ' + macFormateada : 'Serie detectada: ' + v) + ' ✅');
 
   if ($('#fSerial').value && $('#fMac').value) {
     setTimeout(() => {
