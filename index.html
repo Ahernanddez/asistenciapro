@@ -419,6 +419,75 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--acento); ou
   font-size: 16px;
 }
 
+/* ============ Escáner de códigos de barras ============ */
+.escanner-fondo {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 10, 16, .92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 70;
+  padding: 16px;
+  animation: aparecer .15s ease;
+}
+.escanner {
+  background: var(--superficie);
+  border-radius: 16px;
+  box-shadow: var(--sombra-alta);
+  max-width: 480px;
+  width: 100%;
+  padding: 18px;
+  text-align: center;
+}
+.escanner h3 { margin: 0 0 6px; font-size: 17px; }
+.escanner-sub { margin: 0 0 12px; color: var(--texto-suave); font-size: 13px; }
+.escanner-camara {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 4 / 3;
+}
+.escanner-camara video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.escanner-marco { position: absolute; inset: 0; pointer-events: none; }
+.escanner-marco::before {
+  content: '';
+  position: absolute;
+  inset: 20% 12%;
+  border: 2px solid rgba(255, 255, 255, .9);
+  border-radius: 10px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, .30);
+}
+.escanner-linea {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 45%;
+  height: 2px;
+  background: var(--acento);
+  box-shadow: 0 0 10px var(--acento);
+  pointer-events: none;
+  animation: linea-escaneo 2.2s ease-in-out infinite;
+}
+@keyframes linea-escaneo {
+  0%, 100% { top: 32%; }
+  50% { top: 68%; }
+}
+.escanner-cargando {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(0, 0, 0, .6);
+  font-size: 14px;
+  z-index: 2;
+}
+.escanner-estado { margin: 10px 0 0; font-size: 13px; color: var(--texto-suave); min-height: 18px; }
+.escanner-chips { justify-content: center; margin-top: 8px; }
+
 /* ============ Toasts ============ */
 .toasts {
   position: fixed;
@@ -534,6 +603,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--acento); ou
             <img id="previewFoto" alt="Foto del equipo" hidden>
           </div>
           <div id="controlesFoto" class="controles-foto">
+            <button type="button" id="btnEscanner" class="btn btn-primario" title="Abre la cámara y detecta el código de barras de la etiqueta">📷 Escanear etiqueta</button>
             <button type="button" id="btnCamara" class="btn btn-primario">📷 Tomar foto</button>
             <button type="button" id="btnSubir" class="btn">📁 Subir foto</button>
             <button type="button" id="btnCapturar" class="btn btn-primario" hidden>📸 Capturar</button>
@@ -597,6 +667,26 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--acento); ou
 <div id="lightbox" class="lightbox" hidden>
   <img id="lightboxImg" alt="Foto ampliada">
   <button id="btnCerrarLightbox" class="btn lightbox-cerrar" title="Cerrar">✖</button>
+</div>
+
+<!-- ============ ESCÁNER DE CÓDIGOS DE BARRAS ============ -->
+<div id="escannerFondo" class="escanner-fondo" hidden>
+  <div class="escanner">
+    <h3>📷 Escanear etiqueta</h3>
+    <p class="escanner-sub">Enfoca el código de barras de la etiqueta: el número de serie y la MAC se rellenan automáticamente.</p>
+    <div class="escanner-camara">
+      <video id="escannerVideo" autoplay playsinline muted></video>
+      <div class="escanner-marco"></div>
+      <div class="escanner-linea"></div>
+      <div id="escannerCargando" class="escanner-cargando">⏳ Cargando lector…</div>
+    </div>
+    <div id="escannerEstado" class="escanner-estado">🔍 Buscando código…</div>
+    <div id="escannerChips" class="chips escanner-chips"></div>
+    <div class="modal-botones">
+      <button class="btn btn-primario" id="escannerListo">✓ Listo</button>
+      <button class="btn" id="escannerCancelar">✖ Cancelar</button>
+    </div>
+  </div>
 </div>
 
 <div id="toasts" class="toasts"></div>
@@ -1276,6 +1366,118 @@ $('#btnOcr').addEventListener('click', async () => {
     btn.textContent = '🔍 Leer texto (OCR)';
   }
 });
+
+/* ---------------- Escáner en vivo (cámara → códigos de barras) ---------------- */
+let escannerActivo = false;
+let escannerReader = null;
+let escannerStream = null;
+let escannerDetectados = [];
+
+function cargarZXing() {
+  return new Promise((resolve, reject) => {
+    if (window.ZXing) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+    s.async = true;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('No se pudo descargar el lector de códigos (¿sin internet?)'));
+    document.head.appendChild(s);
+  });
+}
+
+$('#btnEscanner').addEventListener('click', abrirEscanner);
+$('#escannerListo').addEventListener('click', () => {
+  detenerEscaneo();
+  toast('Campos rellenados ✅');
+});
+$('#escannerCancelar').addEventListener('click', detenerEscaneo);
+$('#escannerFondo').addEventListener('click', (ev) => {
+  if (ev.target === $('#escannerFondo')) detenerEscaneo();
+});
+
+function abrirEscanner() {
+  pararCamara(); // cierra la cámara de foto si estuviera activa
+  escannerDetectados = [];
+  $('#escannerEstado').textContent = '🔍 Buscando código…';
+  $('#escannerChips').innerHTML = '';
+  $('#escannerCargando').hidden = false;
+  $('#escannerFondo').hidden = false;
+  iniciarEscaneo();
+}
+
+async function iniciarEscaneo() {
+  if (escannerActivo) return;
+  escannerActivo = true;
+  try {
+    await cargarZXing();
+    escannerReader = new ZXing.BrowserMultiFormatReader();
+    escannerStream = await escannerReader.decodeFromConstraints(
+      { audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } } },
+      $('#escannerVideo'),
+      (resultado, error) => {
+        if (resultado && resultado.getText()) procesarCodigoEscaneado(resultado.getText());
+      }
+    );
+    $('#escannerCargando').hidden = true;
+  } catch (err) {
+    escannerActivo = false;
+    $('#escannerCargando').hidden = true;
+    $('#escannerEstado').textContent = '❌ ' + (err && err.message ? err.message : 'No se pudo abrir la cámara');
+    try { if (escannerReader) escannerReader.reset(); } catch {}
+    escannerReader = null;
+  }
+}
+
+function detenerEscaneo() {
+  escannerActivo = false;
+  try { if (escannerReader) escannerReader.reset(); } catch {}
+  if (escannerStream && escannerStream.getTracks) {
+    escannerStream.getTracks().forEach((t) => t.stop());
+  }
+  escannerStream = null;
+  escannerReader = null;
+  $('#escannerVideo').srcObject = null;
+  $('#escannerFondo').hidden = true;
+}
+
+function procesarCodigoEscaneado(valor) {
+  const v = String(valor).trim();
+  if (!v || escannerDetectados.includes(v)) return;
+  escannerDetectados.push(v);
+  try { if (navigator.vibrate) navigator.vibrate(80); } catch {}
+  const esMac = RE_MAC.test(v) || /^[0-9A-Fa-f]{12}$/.test(v);
+  const macFormateada = esMac ? formatearMac(v) : v;
+  if (esMac && !$('#fMac').value) $('#fMac').value = macFormateada;
+  else if (!esMac && !$('#fSerial').value) $('#fSerial').value = v;
+
+  const chip = document.createElement('span');
+  chip.className = 'chip';
+  chip.appendChild(document.createTextNode(v));
+  const bSerie = document.createElement('button');
+  bSerie.type = 'button';
+  bSerie.textContent = 'Serie';
+  bSerie.addEventListener('click', () => { $('#fSerial').value = v; toast('Serie rellenada'); });
+  chip.appendChild(bSerie);
+  if (esMac) {
+    const bMac = document.createElement('button');
+    bMac.type = 'button';
+    bMac.textContent = 'MAC';
+    bMac.addEventListener('click', () => { $('#fMac').value = macFormateada; toast('MAC rellenada'); });
+    chip.appendChild(bMac);
+  }
+  $('#escannerChips').appendChild(chip);
+  $('#escannerEstado').textContent = '✅ ' + (esMac ? 'MAC: ' + macFormateada : 'Serie: ' + v);
+  toast((esMac ? 'MAC detectada: ' + macFormateada : 'Serie detectada: ' + v) + ' ✅');
+
+  if ($('#fSerial').value && $('#fMac').value) {
+    setTimeout(() => {
+      if (escannerActivo) {
+        detenerEscaneo();
+        toast('S/N y MAC detectados ✅');
+      }
+    }, 700);
+  }
+}
 
 /* ---------------- MAC: formato automático ---------------- */
 function formatearMac(texto) {
