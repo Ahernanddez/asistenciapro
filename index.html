@@ -1611,8 +1611,8 @@ function mostrarResolucionCamara() {
   setTimeout(intento, 150);
 }
 
-// Linterna: se muestra solo si la cámara soporta torch (p. ej. cámara trasera
-// de Android/Chrome). Se enciende/apaga con applyConstraints sobre la pista.
+// Linterna: se muestra en Android (donde el torch funciona vía WebRTC) o cuando
+// la cámara lo reporta en getCapabilities(). Se enciende/apaga con applyConstraints.
 function configurarLinterna() {
   const btn = $('#escannerTorch');
   if (!btn) return;
@@ -1622,7 +1622,14 @@ function configurarLinterna() {
   linternaActiva = false;
   try {
     const track = escannerStream && escannerStream.getVideoTracks()[0];
-    if (track && track.getCapabilities && track.getCapabilities().torch) {
+    if (!track) return;
+    const caps = (track.getCapabilities && track.getCapabilities()) || null;
+    const soportaTorch = !!(caps && caps.torch);
+    // En Android mostramos el botón aunque getCapabilities() no reporte torch
+    // (pasa en algunos navegadores/móviles): si la cámara no lo permite, el
+    // toggle muestra un aviso claro en lugar de ocultar la opción.
+    const esAndroid = /Android/i.test(navigator.userAgent || '');
+    if (soportaTorch || esAndroid) {
       btn.hidden = false;
       btn.title = 'Encender linterna';
       btn.onclick = () => alternarLinterna(track, btn);
