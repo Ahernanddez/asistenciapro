@@ -641,17 +641,30 @@ const descargar = (nombre, contenido, tipo) => {
 };
 
 /* ---------------- Toasts ---------------- */
-function toast(mensaje, tipo = '') {
+function toast(mensaje, tipo = '', enlace = null) {
   const div = document.createElement('div');
   div.className = 'toast ' + tipo;
-  div.textContent = mensaje;
+  if (enlace) {
+    div.appendChild(document.createTextNode(mensaje + ' '));
+    const a = document.createElement('a');
+    a.href = enlace.url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = enlace.etiqueta;
+    a.style.color = '#fff';
+    a.style.fontWeight = '700';
+    a.style.textDecoration = 'underline';
+    div.appendChild(a);
+  } else {
+    div.textContent = mensaje;
+  }
   $('#toasts').appendChild(div);
   setTimeout(() => {
     div.style.transition = 'opacity .3s, transform .3s';
     div.style.opacity = '0';
     div.style.transform = 'translateY(6px)';
     setTimeout(() => div.remove(), 320);
-  }, 3200);
+  }, enlace ? 6000 : 3200);
 }
 
 /* ---------------- Temas ---------------- */
@@ -1467,6 +1480,21 @@ let driveUsuario = null;
 let autoDriveActivado = (() => { try { return localStorage.getItem(DRIVE_AUTO_KEY) === '1'; } catch { return false; } })();
 let temporizadorRespaldo = null;
 
+const DRIVE_CARPETA_KEY = 'minventario-drive-carpeta';
+let driveCarpetaCache = (() => {
+  try { return JSON.parse(localStorage.getItem(DRIVE_CARPETA_KEY) || 'null'); } catch { return null; }
+})();
+
+function carpetaDriveCacheada() {
+  if (!driveCarpetaCache || !driveCarpetaCache.id) return null;
+  if (driveUsuario && driveCarpetaCache.usuario && driveCarpetaCache.usuario !== driveUsuario) return null;
+  return driveCarpetaCache.id;
+}
+function guardarCarpetaDrive(id) {
+  driveCarpetaCache = { usuario: driveUsuario || null, id };
+  try { localStorage.setItem(DRIVE_CARPETA_KEY, JSON.stringify(driveCarpetaCache)); } catch {}
+}
+
 function guardarSesionDrive() {
   try { sessionStorage.setItem(DRIVE_SESION_KEY, JSON.stringify({ token: driveToken, expira: driveTokenExpira, usuario: driveUsuario })); } catch {}
 }
@@ -1572,11 +1600,16 @@ async function apiDrive(url, opts = {}) {
 }
 
 async function obtenerOCrearCarpetaDrive() {
+  const cache = carpetaDriveCacheada();
+  if (cache) return cache;
   const q = "name='" + DRIVE_CARPETA + "' and mimeType='application/vnd.google-apps.folder' and trashed=false";
   const r = await apiDrive('https://www.googleapis.com/drive/v3/files?q=' + encodeURIComponent(q) + '&fields=files(id,name)');
   if (!r.ok) throw new Error('No se pudo consultar Drive (' + r.status + ')');
   const j = await r.json();
-  if (j.files && j.files.length) return j.files[0].id;
+  if (j.files && j.files.length) {
+    guardarCarpetaDrive(j.files[0].id);
+    return j.files[0].id;
+  }
   const r2 = await apiDrive('https://www.googleapis.com/drive/v3/files', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1584,6 +1617,7 @@ async function obtenerOCrearCarpetaDrive() {
   });
   if (!r2.ok) throw new Error('No se pudo crear la carpeta en Drive (' + r2.status + ')');
   const c = await r2.json();
+  guardarCarpetaDrive(c.id);
   return c.id;
 }
 
@@ -1616,7 +1650,7 @@ async function subirRespaldoDrive(manual = true) {
       throw new Error((e.error && e.error.message) || ('Error al subir (' + r.status + ')'));
     }
     await podarRespaldosDrive(carpetaId);
-    toast(manual ? 'Respaldo subido a Drive ☁️✅' : 'Respaldo automático en Drive ☁️✅');
+    toast(manual ? 'Respaldo subido a Drive ☁️✅' : 'Respaldo automático en Drive ☁️✅', '', { url: 'https://drive.google.com/drive/folders/' + carpetaId, etiqueta: '📂 Ver carpeta' });
   } catch (err) {
     if (manual) toast('No se pudo subir a Drive: ' + (err && err.message ? err.message : err), 'error');
   } finally {
@@ -1691,6 +1725,7 @@ function abrirModalDrive() {
   } else {
     html += '<button class="btn btn-primario" id="driveSubir">⬆️ Subir respaldo ahora</button>';
     html += '<button class="btn" id="driveRestaurar">⬇️ Restaurar desde Drive</button>';
+    html += '<button class="btn" id="driveAbrirCarpeta">📂 Abrir carpeta en Drive</button>';
     html += '<button class="btn" id="driveDesconectar">🔌 Desconectar</button>';
     html += '<button class="btn" id="driveCerrar">Cerrar</button>';
   }
@@ -1709,6 +1744,8 @@ function abrirModalDrive() {
   if (subir) subir.addEventListener('click', () => { subirRespaldoDrive(true); });
   const restaurar = $('#driveRestaurar');
   if (restaurar) restaurar.addEventListener('click', restaurarDesdeDrive);
+  const abrirCarpeta = $('#driveAbrirCarpeta');
+  if (abrirCarpeta) abrirCarpeta.addEventListener('click', abrirCarpetaDrive);
   const desconectar = $('#driveDesconectar');
   if (desconectar) desconectar.addEventListener('click', desconectarDrive);
   const auto = $('#driveAuto');
@@ -1741,6 +1778,18 @@ function desconectarDrive() {
   limpiarSesionDrive();
   toast('Desconectado de Google Drive');
   abrirModalDrive();
+}
+
+function abrirCarpetaDrive() {
+  const win = window.open('', '_blank');
+  obtenerOCrearCarpetaDrive().then((id) => {
+    const url = 'https://drive.google.com/drive/folders/' + id;
+    if (win) { win.location.href = url; win.focus(); }
+    else { window.open(url, '_blank'); }
+  }).catch((err) => {
+    if (win) win.close();
+    toast('No se pudo abrir la carpeta: ' + (err && err.message ? err.message : err), 'error');
+  });
 }
 
 async function restaurarDesdeDrive() {
