@@ -38,6 +38,20 @@
       </div>
       <p class="splash-version">v1.0 · Cargando...</p>
     </div>
+  <script>
+    // INLINE: Hide splash after 5 seconds NO MATTER WHAT
+    // This runs before any external JS loads
+    setTimeout(function() {
+      var s = document.getElementById('splashScreen');
+      if (s) {
+        s.style.transition = 'opacity .5s, transform .5s';
+        s.style.opacity = '0';
+        s.style.transform = 'scale(1.05)';
+        s.style.pointerEvents = 'none';
+        setTimeout(function() { s.remove(); }, 600);
+      }
+    }, 5000);
+  </script>
 
   <!-- ============ LOGIN SCREEN ============ -->
   <div id="loginScreen" class="login-screen hidden">
