@@ -2375,26 +2375,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 5000);
 
-  // Register service worker
+  // Register service worker (minimal — just cleans old caches)
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').then(reg => {
-      setInterval(() => reg.update(), 30 * 60 * 1000);
-      reg.addEventListener('updatefound', () => {
-        const newSW = reg.installing;
-        newSW.addEventListener('statechange', () => {
-          if (newSW.state === 'activated') showUpdateToast();
-        });
-      });
-    }).catch(() => {});
-    navigator.serviceWorker.addEventListener('message', event => {
-      if (event.data && event.data.type === 'FORCE_RELOAD') {
-        // Only reload once per session
-        if (!sessionStorage.getItem('asp_reloaded')) {
-          sessionStorage.setItem('asp_reloaded', '1');
-          window.location.reload();
-        }
-      }
-    });
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
 
   // Initialize app (async, but splash hides regardless)
