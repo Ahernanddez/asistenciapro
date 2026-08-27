@@ -2173,8 +2173,9 @@ window.addEventListener('appinstalled', () => {
    ============================================================ */
 
 
+
 document.addEventListener('DOMContentLoaded', () => {
-  // ALWAYS hide splash after 5 seconds no matter what
+  // Splash hide after 3 seconds
   setTimeout(() => {
     const splash = $('#splashScreen');
     if (splash) {
@@ -2183,28 +2184,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 3000);
 
-  // Register service worker (minimal — just cleans old caches)
+  // Register service worker with auto-update
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      setInterval(() => reg.update(), 30 * 60 * 1000);
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'activated') {
+            toast('App actualizada. Recargando...', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+          }
+        });
+      });
+    }).catch(() => {});
   }
 
-  // Initialize app (async, but splash hides regardless)
-  initApp().catch(err => {
-    console.error('Init error:', err);
-  });
+  // Initialize app
+  initApp().catch(err => console.error('Init error:', err));
 });
 
 async function initApp() {
   await DB.init();
 
-  // Apply saved animation config
   try {
     const animCfg = getAnimConfig();
     applyAnimConfig(animCfg.tipo, animCfg.velocidad);
   } catch(e) {}
 
-
-  // Show user selection or dashboard
   const users = await DB.getUserList();
   if (users.length > 1) {
     await renderUserScreen();
@@ -2217,12 +2224,11 @@ async function initApp() {
   } else {
     $('#userScreen').classList.remove('hidden');
     await renderUserScreen();
+  }
 
-  // Auto-backup check
   setTimeout(() => {
     if (DB.autoBackup(7)) {
       toast('Respaldo automatico descargado', 'success');
     }
   }, 2000);
-}
 }
