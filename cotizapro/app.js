@@ -240,7 +240,7 @@ function cerrarModalCliente() {
 }
 
 async function editarCliente(id) {
-  const cliente = await dbGet(STORES.clientes, id);
+  const cliente = await dbGet(SHEETS.clientes, id);
   if (!cliente) return;
   clienteEditandoId = id;
   $('#modalClienteTitle').textContent = '👤 Editar Cliente';
@@ -381,7 +381,7 @@ function cerrarModalProducto() {
 }
 
 async function editarProducto(id) {
-  const prod = await dbGet(STORES.productos, id);
+  const prod = await dbGet(SHEETS.productos, id);
   if (!prod) return;
   productoEditandoId = id;
   $('#modalProductoTitle').textContent = '📦 Editar Producto';
@@ -512,7 +512,6 @@ async function renderCotizaciones() {
       <td style="padding:10px 12px;border-bottom:1px solid var(--border-light)">
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn btn-sm" onclick="editarCotizacion('${c.id}')" title="Editar">✏️</button>
-          <button class="btn btn-sm" onclick="duplicarCotizacionAction('${c.id}')" title="Duplicar">📋</button>
           <button class="btn btn-sm" onclick="descargarPDF('${c.id}')" title="Descargar PDF">📥</button>
           <button class="btn btn-sm btn-danger" onclick="confirmarEliminarCotizacion('${c.id}', '${esc(c.numero)}')" title="Eliminar">🗑</button>
         </div>
@@ -642,9 +641,12 @@ function agregarDetalle() {
     descripcion: '',
     cantidad: 1,
     precioUnitario: 0,
+    precioCompra: 0,
     descuentoPorcentaje: 0,
     descuento: 0,
     subtotal: 0,
+    cargoMensual: 0,
+    margen: 0,
   };
   cotizacionDetalles.push(nuevo);
   renderDetalle();
@@ -671,6 +673,12 @@ function renderDetalle() {
     const sub = subtotal - descMonto;
     d.subtotal = sub;
 
+    const precioCompra = d.precioCompra || 0;
+    if (!d.margen && precioCompra > 0 && d.precioUnitario > 0) {
+      d.margen = Math.round(((d.precioUnitario - precioCompra) / precioCompra) * 100);
+    }
+    const margen = d.margen || 0;
+
     html += `<tr>
       <td>
         <div style="font-weight:600;font-size:13px;cursor:pointer;color:var(--primary)" onclick="abrirSeleccionarProducto(${i})" title="Cambiar producto">${esc(d.codigo || 'Click para seleccionar')}</div>
@@ -693,6 +701,14 @@ function renderDetalle() {
           oninput="actualizarDetalle(${i}, 'descuentoPorcentaje', parseFloat(this.value)||0)">
       </td>
       <td style="text-align:right;font-weight:600;white-space:nowrap">${formatMoney(sub)}</td>
+      <td>
+        <input type="number" min="0" step="0.01" value="${d.cargoMensual || 0}" style="text-align:right"
+          oninput="actualizarDetalle(${i}, 'cargoMensual', parseFloat(this.value)||0)">
+      </td>
+      <td>
+        <input type="number" min="0" max="500" step="1" value="${margen}" style="text-align:center"
+          oninput="aplicarMargen(${i}, parseFloat(this.value)||0)">
+      </td>
       <td style="text-align:center">
         <button class="btn btn-sm btn-danger" onclick="eliminarDetalle(${i})" title="Eliminar">✕</button>
       </td>
@@ -705,6 +721,16 @@ function renderDetalle() {
 
 function actualizarDetalle(index, campo, valor) {
   cotizacionDetalles[index][campo] = valor;
+  renderDetalle();
+}
+
+function aplicarMargen(index, margen) {
+  const d = cotizacionDetalles[index];
+  d.margen = margen;
+  const pc = d.precioCompra || 0;
+  if (pc > 0) {
+    d.precioUnitario = Math.round(pc * (1 + margen / 100) * 100) / 100;
+  }
   renderDetalle();
 }
 
@@ -772,7 +798,7 @@ async function renderSeleccionarProducto() {
 }
 
 async function seleccionarProducto(productoId, index) {
-  const prod = await dbGet(STORES.productos, productoId);
+  const prod = await dbGet(SHEETS.productos, productoId);
   if (!prod) return;
 
   cotizacionDetalles[index].productoId = prod.id;
@@ -780,6 +806,8 @@ async function seleccionarProducto(productoId, index) {
   cotizacionDetalles[index].nombre = prod.nombre;
   cotizacionDetalles[index].descripcion = prod.descripcion || prod.nombre;
   cotizacionDetalles[index].precioUnitario = prod.precioVenta || 0;
+  cotizacionDetalles[index].precioCompra = prod.precioCompra || prod.precioVenta || 0;
+  cotizacionDetalles[index].margen = 0;
 
   cerrarSeleccionarProducto();
   renderDetalle();
@@ -794,6 +822,7 @@ async function calcularTotales() {
   let subtotal = 0;
   let descuentoTotal = 0;
   let impuestoTotal = 0;
+  let cargoMensualTotal = 0;
 
   cotizacionDetalles.forEach(d => {
     const precio = d.precioUnitario || 0;
@@ -807,6 +836,7 @@ async function calcularTotales() {
     subtotal += lineSubtotal;
     descuentoTotal += descMonto;
     impuestoTotal += lineImp;
+    cargoMensualTotal += (d.cargoMensual || 0) * cant;
   });
 
   const manoObra = parseFloat($('#fCotManoObra').value) || 0;
@@ -823,6 +853,7 @@ async function calcularTotales() {
   $('#totTransporte').textContent = formatMoney(transporte);
   $('#totMateriales').textContent = formatMoney(materiales);
   $('#totOtros').textContent = formatMoney(otros);
+  if ($('#totCargoMensual')) $('#totCargoMensual').textContent = formatMoney(cargoMensualTotal);
   $('#totGeneral').textContent = formatMoney(total);
 }
 
@@ -906,8 +937,11 @@ async function guardarCotizacionForm() {
       descripcion: d.descripcion,
       cantidad: d.cantidad,
       precioUnitario: d.precioUnitario,
+      precioCompra: d.precioCompra || 0,
       descuentoPorcentaje: d.descuentoPorcentaje,
       subtotal: d.subtotal,
+      cargoMensual: d.cargoMensual || 0,
+      margen: d.margen || 0,
     };
     await guardarDetalleCotizacion(det);
   }
@@ -978,10 +1012,401 @@ async function guardarConfig() {
   toast('Configuración guardada', 'success');
 }
 
+/* ============ TEMA OSCURO ============ */
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('cotizapro_theme', next);
+  $('#btnThemeToggle').textContent = next === 'dark' ? '☀️' : '🌙';
+}
+
+function loadTheme() {
+  const saved = localStorage.getItem('cotizapro_theme');
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+    if ($('#btnThemeToggle')) $('#btnThemeToggle').textContent = saved === 'dark' ? '☀️' : '🌙';
+  }
+}
+
+/* ============ AUTENTICACIÓN CON GOOGLE ============ */
+
+async function handleSignIn() {
+  try {
+    toast('Conectando con Google Sheets...', 'info');
+    await iniciarSesion();
+    await inicializarSheets();
+    actualizarUIAuth(true);
+    await seedDatosIniciales();
+    toast('Conectado a base de datos', 'success');
+    navegar('dashboard');
+  } catch (e) {
+    console.error('Error de autenticación:', e);
+    toast('Error al conectar: ' + (e.message || 'Verifica tu conexión'), 'error');
+  }
+}
+
+function handleSignOut() {
+  cerrarSesion();
+  actualizarUIAuth(false);
+  toast('Sesión cerrada', 'info');
+  navegar('dashboard');
+}
+
+async function handleRefresh() {
+  try {
+    toast('Recargando datos...', 'info');
+    await recargarDatos();
+    await seedProductosEjemplo();
+    navegar(currentView);
+    toast('Datos actualizados', 'success');
+  } catch (e) {
+    toast('Error al recargar: ' + (e.message || ''), 'error');
+  }
+}
+
+function actualizarUIAuth(authenticated) {
+  const signInBtn = $('#btnGoogleSignIn');
+  const signOutBtn = $('#btnGoogleSignOut');
+  const userEmail = $('#userEmail');
+  const authRequired = $('#authRequired');
+  const configContent = $('#configContent');
+  const refreshBtn = $('#btnRefresh');
+  const importBtn = $('#btnImport');
+
+  if (authenticated) {
+    if (signInBtn) signInBtn.style.display = 'none';
+    if (signOutBtn) signOutBtn.style.display = '';
+    if (refreshBtn) refreshBtn.style.display = '';
+    if (importBtn) importBtn.style.display = '';
+    if (userEmail) { userEmail.style.display = ''; userEmail.textContent = '✅ Conectado a base de datos'; }
+    if (authRequired) authRequired.style.display = 'none';
+    if (configContent) configContent.style.display = '';
+  } else {
+    if (signInBtn) signInBtn.style.display = '';
+    if (signOutBtn) signOutBtn.style.display = 'none';
+    if (refreshBtn) refreshBtn.style.display = 'none';
+    if (importBtn) importBtn.style.display = 'none';
+    if (userEmail) userEmail.style.display = 'none';
+    if (authRequired) authRequired.style.display = '';
+    if (configContent) configContent.style.display = 'none';
+  }
+}
+
 /* ============ INICIALIZACIÓN ============ */
 
+async function seedProductosEjemplo() {
+  const ps = await obtenerProductos();
+  if (ps.length > 0) return;
+  const ejemplos = [
+    { codigo: 'SW-001', categoria: 'Switch', nombre: 'Switch Cisco WS-C2960-24TT-L', marca: 'Cisco', modelo: 'WS-C2960-24TT-L', descripcion: 'Switch administrable 24 puertos Fast Ethernet + 2 puertos Gigabit Ethernet', precioCompra: 4500, precioVenta: 6800, costoInstalacion: 800, impuesto: 15, estado: 'activo' },
+    { codigo: 'AP-001', categoria: 'Access Point', nombre: 'Access Point Ubiquiti UniFi AP-AC-Pro', marca: 'Ubiquiti', modelo: 'AP-AC-Pro', descripcion: 'Access Point WiFi dual band 802.11ac, 3x3 MIMO, 1300 Mbps', precioCompra: 3200, precioVenta: 5200, costoInstalacion: 600, impuesto: 15, estado: 'activo' },
+    { codigo: 'CAM-001', categoria: 'Cámaras', nombre: 'Cámara IP Hikvision DS-2CD2143G2-I', marca: 'Hikvision', modelo: 'DS-2CD2143G2-I', descripcion: 'Cámara IP bullet 4MP, IR 30m, IP67, PoE', precioCompra: 2800, precioVenta: 4500, costoInstalacion: 700, impuesto: 15, estado: 'activo' },
+    { codigo: 'CBL-001', categoria: 'Cableado', nombre: 'Cable UTP Cat 6 (Rollo 305m)', marca: 'Belden', modelo: 'CAT6-305', descripcion: 'Cable UTP par trenzado Cat 6, 305 metros, halogen-free', precioCompra: 3800, precioVenta: 5800, costoInstalacion: 0, impuesto: 15, estado: 'activo' },
+    { codigo: 'SRV-001', categoria: 'Servicios', nombre: 'Instalación y Configuración de Red', marca: 'TELESIS', modelo: 'SRV-INST-001', descripcion: 'Servicio de instalación, configuración y puesta en marcha de red de datos completa', precioCompra: 0, precioVenta: 8500, costoInstalacion: 0, impuesto: 15, estado: 'activo' },
+  ];
+  for (const p of ejemplos) {
+    await guardarProducto(p);
+  }
+}
+
+loadTheme();
 document.addEventListener('DOMContentLoaded', async () => {
-  // Inicializar base de datos
-  await abrirBD();
+  if (estaAutenticado()) {
+    try {
+      await inicializarSheets();
+      actualizarUIAuth(true);
+      await seedDatosIniciales();
+      toast('Sesión restaurada', 'success');
+    } catch (e) {
+      sessionStorage.removeItem('cotizapro_token');
+      gAccessToken = null;
+      gAuthenticated = false;
+      actualizarUIAuth(false);
+    }
+  } else {
+    actualizarUIAuth(false);
+  }
   navegar('dashboard');
 });
+
+/* ============================================================
+   NUEVAS FUNCIONALIDADES
+   ============================================================ */
+
+/* --- 1. ENVIAR POR EMAIL --- */
+async function enviarPorEmail(id) {
+  const c = await obtenerCotizacionCompleta(id);
+  if (!c) { toast('Cotización no encontrada', 'error'); return; }
+  const cl = c.clienteId ? await dbGet(SHEETS.clientes, c.clienteId) : null;
+  const cfg = await obtenerConfiguracion();
+  let body = `Estimado/a ${cl ? cl.nombre : 'Cliente'},\n\n`;
+  body += `Le adjuntamos la cotización ${c.numero}.\n\n`;
+  body += `Fecha: ${formatearFecha(c.fechaCreacion)}\n`;
+  body += `Vencimiento: ${formatearFecha(c.fechaVencimiento)}\n`;
+  body += `Total: ${formatMoney(c.total)}\n\n`;
+  if (c.observaciones) body += `Observaciones:\n${c.observaciones}\n\n`;
+  body += `Saludos cordiales,\n${cfg.nombreEmpresa || ''}\n${cfg.telefonoEmpresa || ''}`;
+  const subject = `Cotización ${c.numero} - ${cfg.nombreEmpresa || 'CotizaPro'}`;
+  const mailto = `mailto:${cl ? cl.email : ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.open(mailto, '_blank');
+  toast('Abriendo cliente de correo...', 'info');
+}
+
+/* --- 2. PORTFOLIO DE CLIENTE --- */
+let clienteSeleccionadoId = null;
+async function verPortfolioCliente(clienteId) {
+  clienteSeleccionadoId = clienteId;
+  const cl = await dbGet(SHEETS.clientes, clienteId);
+  if (!cl) return;
+  const cs = await obtenerCotizaciones();
+  const misCotizaciones = cs.filter(c => c.clienteId === clienteId);
+  const totalCotizado = misCotizaciones.reduce((s, c) => s + (c.total || 0), 0);
+  const totalAprobado = misCotizaciones.filter(c => c.estado === 'aprobada').reduce((s, c) => s + (c.total || 0), 0);
+  const aprobadas = misCotizaciones.filter(c => c.estado === 'aprobada').length;
+  const pendientes = misCotizaciones.filter(c => c.estado === 'enviada' || c.estado === 'borrador').length;
+  let html = `<div class="page-header"><div><h2 style="color:var(--text);font-size:18px;font-weight:700">👤 ${esc(cl.nombre)}</h2>`;
+  html += `<h3 style="color:var(--text-secondary);font-size:14px">RTN: ${esc(cl.rtn || 'N/A')} | Tel: ${esc(cl.telefono || 'N/A')} | Email: ${esc(cl.email || 'N/A')}</h3></div></div>`;
+  html += `<div class="stats-grid" style="margin-bottom:20px">`;
+  html += `<div class="stat-card"><div class="stat-icon blue">📄</div><div class="stat-info"><h3>${misCotizaciones.length}</h3><p>Total Cotizaciones</p></div></div>`;
+  html += `<div class="stat-card"><div class="stat-icon green">✅</div><div class="stat-info"><h3>${aprobadas}</h3><p>Aprobadas</p></div></div>`;
+  html += `<div class="stat-card"><div class="stat-icon yellow">⏳</div><div class="stat-info"><h3>${pendientes}</h3><p>Pendientes</p></div></div>`;
+  html += `<div class="stat-card"><div class="stat-icon green">💰</div><div class="stat-info"><h3 style="font-size:20px">${formatMoney(totalAprobado)}</h3><p>Monto Aprobado</p></div></div>`;
+  html += `</div>`;
+  html += `<div class="panel"><div class="panel-header"><h3>📄 Historial de Cotizaciones</h3></div><div class="panel-body">`;
+  if (misCotizaciones.length === 0) {
+    html += `<div class="empty-state"><p>No hay cotizaciones para este cliente</p></div>`;
+  } else {
+    html += `<table style="width:100%;border-collapse:collapse"><thead><tr>`;
+    html += `<th style="text-align:left;padding:10px;border-bottom:2px solid var(--border);font-size:12px;color:var(--text-secondary)">Número</th>`;
+    html += `<th style="text-align:left;padding:10px;border-bottom:2px solid var(--border);font-size:12px;color:var(--text-secondary)">Fecha</th>`;
+    html += `<th style="text-align:left;padding:10px;border-bottom:2px solid var(--border);font-size:12px;color:var(--text-secondary)">Estado</th>`;
+    html += `<th style="text-align:right;padding:10px;border-bottom:2px solid var(--border);font-size:12px;color:var(--text-secondary)">Total</th>`;
+    html += `</tr></thead><tbody>`;
+    misCotizaciones.sort((a,b) => (b.fechaCreacion||'').localeCompare(a.fechaCreacion||'')).forEach(c => {
+      html += `<tr style="cursor:pointer" onclick="editarCotizacion('${c.id}')">`;
+      html += `<td style="padding:10px;border-bottom:1px solid var(--border-light);font-weight:600">${esc(c.numero)}</td>`;
+      html += `<td style="padding:10px;border-bottom:1px solid var(--border-light)">${formatearFecha(c.fechaCreacion)}</td>`;
+      html += `<td style="padding:10px;border-bottom:1px solid var(--border-light)"><span class="badge ${getBadgeClass(c.estado)}">${c.estado}</span></td>`;
+      html += `<td style="padding:10px;border-bottom:1px solid var(--border-light);text-align:right;font-weight:600">${formatMoney(c.total)}</td>`;
+      html += `</tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+  html += `</div></div>`;
+  $('#view-clientes-portfolio').innerHTML = html;
+  navegar('clientes-portfolio');
+}
+
+/* --- 3. CONVERSIÓN DE MONEDA --- */
+let tipoCambio = 24.50; // Lempiras por dólar
+function convertirMoneda(valor, de, a) {
+  if (de === a) return valor;
+  if (de === 'HNL' && a === 'USD') return Math.round((valor / tipoCambio) * 100) / 100;
+  if (de === 'USD' && a === 'HNL') return Math.round(valor * tipoCambio * 100) / 100;
+  return valor;
+}
+
+/* --- 4. PLANTILLAS DE COTIZACIÓN --- */
+const PLANTILLAS = [
+  {
+    nombre: 'Instalación de Red',
+    descripcion: 'Instalación completa de red de datos',
+    items: [
+      { codigo: 'SRV-001', descripcion: 'Instalación y Configuración de Red', cantidad: 1, precioUnitario: 8500, cargoMensual: 0 },
+      { codigo: 'CBL-001', descripcion: 'Cable UTP Cat 6 (Rollo 305m)', cantidad: 2, precioUnitario: 5800, cargoMensual: 0 },
+    ],
+    alcance: 'Instalación de red de datos completa incluyendo:
+- Cableado estructurado
+- Instalación de patch panel
+- Configuración de switches
+- Pruebas y puesta en marcha',
+    observaciones: '1. Los precios tienen validez de 30 días.
+2. Se requiere anticipo del 50%.
+3. Garantía de 1 año en instalación.'
+  },
+  {
+    nombre: 'Mantenimiento Mensual',
+    descripcion: 'Servicio de mantenimiento preventivo mensual',
+    items: [
+      { codigo: 'SRV-001', descripcion: 'Mantenimiento Preventivo Mensual', cantidad: 1, precioUnitario: 3500, cargoMensual: 3500 },
+    ],
+    alcance: 'Servicio de mantenimiento mensual incluyendo:
+- Revisión de equipos de red
+- Limpieza de dispositivos
+- Actualización de firmware
+- Reporte de estado',
+    observaciones: '1. Servicio mensual recurrente.
+2. Contrato mínimo de 6 meses.
+3. Incluye repuestos menores.'
+  },
+  {
+    nombre: 'Instalación de Cámaras',
+    descripcion: 'Sistema de vigilancia con cámaras IP',
+    items: [
+      { codigo: 'CAM-001', descripcion: 'Cámara IP Hikvision DS-2CD2143G2-I', cantidad: 4, precioUnitario: 4500, cargoMensual: 0 },
+      { codigo: 'SW-001', descripcion: 'Switch Cisco WS-C2960-24TT-L', cantidad: 1, precioUnitario: 6800, cargoMensual: 0 },
+      { codigo: 'SRV-001', descripcion: 'Instalación y Configuración de Cámaras', cantidad: 1, precioUnitario: 5000, cargoMensual: 0 },
+    ],
+    alcance: 'Instalación de sistema de vigilancia:
+- 4 cámaras IP 4MP
+- Switch administrable
+- Configuración de grabación
+- Acceso remoto desde móvil',
+    observaciones: '1. Los precios incluyen IVA.
+2. Garantía de equipos: 2 años.
+3. Instalación incluida.'
+  },
+  {
+    nombre: 'WiFi Empresarial',
+    descripcion: 'Red WiFi de alta velocidad para empresas',
+    items: [
+      { codigo: 'AP-001', descripcion: 'Access Point Ubiquiti UniFi AP-AC-Pro', cantidad: 3, precioUnitario: 5200, cargoMensual: 0 },
+      { codigo: 'SRV-001', descripcion: 'Instalación y Configuración WiFi', cantidad: 1, precioUnitario: 4000, cargoMensual: 0 },
+    ],
+    alcance: 'Red WiFi empresarial de alta velocidad:
+- 3 Access Points de alta capacidad
+- Cobertura completa del edificio
+- Gestión centralizada
+- Soporte técnico incluido',
+    observaciones: '1. Velocidad garantizada: 300 Mbps por AP.
+2. Soporte técnico 24/7.
+3. Contrato mensual incluido.'
+  }
+];
+function aplicarPlantilla(index) {
+  const p = PLANTILLAS[index];
+  if (!p) return;
+  cotizacionDetalles = [];
+  p.items.forEach(item => {
+    cotizacionDetalles.push({
+      cotizacionId: cotizacionEditandoId || '__',
+      productoId: '',
+      codigo: item.codigo,
+      nombre: item.descripcion,
+      descripcion: item.descripcion,
+      cantidad: item.cantidad,
+      precioUnitario: item.precioUnitario,
+      precioCompra: 0,
+      descuentoPorcentaje: 0,
+      subtotal: item.precioUnitario * item.cantidad,
+      cargoMensual: item.cargoMensual || 0,
+      margen: 0
+    });
+  });
+  $('#fCotAlcance').value = p.alcance || '';
+  $('#fCotObservaciones').value = p.observaciones || '';
+  renderDetalle();
+  toast('Plantilla "' + p.nombre + '" aplicada', 'success');
+}
+
+/* --- 5. RECORDATORIOS DE VENCIMIENTO --- */
+async function obtenerCotizacionesPorVencer() {
+  const cs = await obtenerCotizaciones();
+  const hoy = hoyISO();
+  return cs.filter(c => {
+    if (c.estado !== 'enviada' && c.estado !== 'borrador') return false;
+    if (!c.fechaVencimiento) return false;
+    const diff = (new Date(c.fechaVencimiento) - new Date(hoy)) / (1000 * 60 * 60 * 24);
+    return diff <= 7 && diff >= 0;
+  });
+}
+
+/* --- 6. REPORTES --- */
+async function obtenerReportes() {
+  const cs = await obtenerCotizaciones();
+  const meses = {};
+  cs.forEach(c => {
+    if (!c.fechaCreacion) return;
+    const m = c.fechaCreacion.substring(0, 7); // YYYY-MM
+    if (!meses[m]) meses[m] = { total: 0, aprobadas: 0, monto: 0, count: 0 };
+    meses[m].count++;
+    meses[m].total += c.total || 0;
+    if (c.estado === 'aprobada') {
+      meses[m].aprobadas++;
+      meses[m].monto += c.total || 0;
+    }
+  });
+  return meses;
+}
+
+/* --- 7. CSV IMPORT/EXPORT --- */
+function exportarCSV(tipo) {
+  let csv = '';
+  let filename = '';
+  if (tipo === 'clientes') {
+    csv = 'Nombre,RTN,Teléfono,Email,Dirección,Contacto\n';
+    const cs = clientesCache || [];
+    cs.forEach(c => {
+      csv += `"${c.nombre || ''}","${c.rtn || ''}","${c.telefono || ''}","${c.email || ''}","${c.direccion || ''}","${c.contacto || ''}"\n`;
+    });
+    filename = 'clientes_cotizapro.csv';
+  } else if (tipo === 'productos') {
+    csv = 'Código,Categoría,Nombre,Marca,Modelo,Precio Compra,Precio Venta,Estado\n';
+    const ps = await obtenerProductos();
+    ps.forEach(p => {
+      csv += `"${p.codigo || ''}","${p.categoria || ''}","${p.nombre || ''}","${p.marca || ''}","${p.modelo || ''}",${p.precioCompra || 0},${p.precioVenta || 0},"${p.estado || ''}"\n`;
+    });
+    filename = 'productos_cotizapro.csv';
+  }
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  toast('CSV exportado: ' + filename, 'success');
+}
+function importarCSV(tipo) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.csv';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    const lines = text.split('\n').filter(l => l.trim());
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    let count = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].match(/("[^"]*"|[^,]+)/g) || [];
+      const vals = values.map(v => v.trim().replace(/"/g, ''));
+      if (tipo === 'clientes') {
+        await guardarCliente({ nombre: vals[0], rtn: vals[1], telefono: vals[2], email: vals[3], direccion: vals[4], contacto: vals[5] });
+        count++;
+      } else if (tipo === 'productos') {
+        await guardarProducto({ codigo: vals[0], categoria: vals[1], nombre: vals[2], marca: vals[3], modelo: vals[4], precioCompra: parseFloat(vals[5])||0, precioVenta: parseFloat(vals[6])||0, estado: vals[7]||'activo' });
+        count++;
+      }
+    }
+    toast(count + ' registros importados', 'success');
+    if (tipo === 'clientes') renderClientes();
+    else renderProductos();
+  };
+  input.click();
+}
+
+/* --- 8. WHATSAPP VENDEDOR --- */
+function enviarWhatsAppVendedor(numero) {
+  if (!numero) { toast('No hay número de teléfono', 'error'); return; }
+  const phone = numero.replace(/[^0-9+]/g, '');
+  window.open('https://wa.me/' + phone, '_blank');
+}
+
+/* --- 11. INVENTARIO --- */
+async function verificarStock(codigo, cantidadRequerida) {
+  const ps = await obtenerProductos();
+  const p = ps.find(prod => prod.codigo === codigo);
+  if (!p) return { ok: false, msg: 'Producto no encontrado' };
+  if (p.stock !== undefined && p.stock < cantidadRequerida) {
+    return { ok: false, msg: `Stock insuficiente: ${p.stock} disponible(s)` };
+  }
+  return { ok: true, stock: p.stock };
+}
+async function descontarStock(codigo, cantidad) {
+  const ps = await obtenerProductos();
+  const p = ps.find(prod => prod.codigo === codigo);
+  if (!p || p.stock === undefined) return;
+  p.stock = Math.max(0, (p.stock || 0) - cantidad);
+  await guardarProducto(p);
+}

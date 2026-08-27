@@ -39,6 +39,34 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 [hidden] { display: none !important; }
 
+[data-theme="dark"] {
+  --primary: #60a5fa;
+  --primary-light: #93c5fd;
+  --primary-dark: #3b82f6;
+  --primary-bg: #1e3a5f;
+  --accent: #3b82f6;
+  --bg: #2F2F2F;
+  --surface: #1e293b;
+  --surface-alt: #334155;
+  --text: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border: #334155;
+  --border-light: #1e293b;
+  --success: #34d399;
+  --success-bg: #064e3b;
+  --warning: #fbbf24;
+  --warning-bg: #78350f;
+  --danger: #f87171;
+  --danger-bg: #7f1d1d;
+  --info: #60a5fa;
+  --info-bg: #1e3a5f;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+  --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,.4), 0 2px 4px -2px rgba(0,0,0,.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.4), 0 4px 6px -4px rgba(0,0,0,.3);
+}
+
 html { scroll-behavior: smooth; }
 
 body {
@@ -202,6 +230,17 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+#btnThemeToggle {
+  font-size: 18px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: var(--transition);
+}
+
+#btnThemeToggle:hover {
+  background: var(--surface-alt);
 }
 
 .menu-toggle {
@@ -598,10 +637,11 @@ tbody tr:last-child td {
 .items-table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 800px;
 }
 
 .items-table th {
-  padding: 10px 12px;
+  padding: 12px 14px;
   text-align: left;
   font-size: 12px;
   font-weight: 600;
@@ -610,10 +650,11 @@ tbody tr:last-child td {
   color: var(--text-secondary);
   background: var(--surface-alt);
   border-bottom: 2px solid var(--border);
+  white-space: nowrap;
 }
 
 .items-table td {
-  padding: 10px 12px;
+  padding: 8px 10px;
   font-size: 14px;
   border-bottom: 1px solid var(--border-light);
   vertical-align: middle;
@@ -621,13 +662,15 @@ tbody tr:last-child td {
 
 .items-table input,
 .items-table select {
-  padding: 7px 10px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 14px;
   font-family: inherit;
   background: var(--surface);
   width: 100%;
+  min-width: 80px;
+  box-sizing: border-box;
 }
 
 .items-table input:focus,
@@ -637,12 +680,13 @@ tbody tr:last-child td {
   box-shadow: 0 0 0 2px rgba(59,130,246,.1);
 }
 
-.items-table .col-codigo { width: 100px; }
-.items-table .col-desc { min-width: 180px; }
-.items-table .col-cant { width: 80px; text-align: center; }
-.items-table .col-precio { width: 120px; text-align: right; }
-.items-table .col-descuento { width: 80px; text-align: center; }
-.items-table .col-subtotal { width: 120px; text-align: right; }
+.items-table .col-codigo { width: 120px; }
+.items-table .col-desc { min-width: 250px; }
+.items-table .col-cant { width: 100px; text-align: center; }
+.items-table .col-precio { width: 150px; text-align: right; }
+.items-table .col-descuento { width: 110px; text-align: center; }
+.items-table .col-subtotal { width: 150px; text-align: right; }
+.items-table .col-margen { width: 100px; text-align: center; }
 .items-table .col-acciones { width: 50px; text-align: center; }
 
 /* ============ Totals section ============ */

@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>AsistenciaPro — Control de Asistencia</title>
+  <meta name="description" content="Aplicación profesional para el control de asistencia de grupos y personas">
+  <meta name="theme-color" content="#059669">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AsistenciaPro">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="AsistenciaPro">
+  <meta name="msapplication-TileColor" content="#059669">
+  <meta name="msapplication-tap-highlight" content="no">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ============ USER SELECTION SCREEN ============ -->
+  <div id="userScreen" class="user-screen">
+    <div class="user-screen-card">
+      <div class="user-screen-logo">✅</div>
+      <h1>AsistenciaPro</h1>
+      <p class="user-screen-subtitle">Selecciona tu empresa o crea una nueva</p>
+
+      <div id="userList" class="user-list"></div>
+
+      <div class="user-create-section">
+        <div class="form-group">
+          <input type="text" id="newUserName" placeholder="Nombre de la nueva empresa..." maxlength="40" style="text-align:center;font-size:15px;padding:12px">
+        </div>
+        <button class="btn btn-primary" style="width:100%;padding:12px;font-size:15px" onclick="crearUsuario()">➕ Crear Empresa</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SIDEBAR ============ -->
+  <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-icon">✅</div>
+      <div>
+        <h1>AsistenciaPro</h1>
+        <small>Control de Asistencia</small>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Principal</div>
+      <button class="nav-item active" data-view="dashboard" onclick="navegar('dashboard')">
+        <span class="nav-icon">📊</span> Dashboard
+      </button>
+
+      <div class="nav-section">Gestión</div>
+      <button class="nav-item" data-view="grupos" onclick="navegar('grupos')">
+        <span class="nav-icon">👥</span> Grupos
+        <span id="navBadgeGrupos" class="nav-badge" hidden></span>
+      </button>
+      <button class="nav-item" data-view="miembros" onclick="navegar('miembros')">
+        <span class="nav-icon">🧑‍🤝‍🧑</span> Miembros
+      </button>
+
+      <div class="nav-section">Operaciones</div>
+      <button class="nav-item" data-view="pasarlista" onclick="navegar('pasarlista')">
+        <span class="nav-icon">📋</span> Pasar Lista
+      </button>
+      <button class="nav-item" data-view="historial" onclick="navegar('historial')">
+        <span class="nav-icon">📅</span> Historial
+      </button>
+      <button class="nav-item" data-view="reportes" onclick="navegar('reportes')">
+        <span class="nav-icon">📈</span> Reportes
+      </button>
+
+      <div class="nav-section">Sistema</div>
+      <button class="nav-item" data-view="configuracion" onclick="navegar('configuracion')">
+        <span class="nav-icon">⚙️</span> Configuración
+      </button>
+    </nav>
+    <div class="sidebar-footer">AsistenciaPro v1.0 · Datos locales</div>
+  </aside>
+
+  <!-- ============ MAIN CONTENT ============ -->
+  <div class="main-content">
+    <header class="topbar">
+      <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+      <h2 id="topbarTitle" class="topbar-title">Dashboard</h2>
+      <div class="topbar-actions" id="topbarActions"></div>
+    </header>
+
+    <div class="content">
+      <!-- ===== DASHBOARD ===== -->
+      <section id="view-dashboard" class="view">
+        <div id="dashboardStats" class="stats-grid"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:8px">
+          <div class="panel">
+            <div class="panel-header">
+              <h3>📋 Asistencia de Hoy</h3>
+            </div>
+            <div id="hoyResumen" class="panel-body"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <h3>👥 Grupos Activos</h3>
+              <button class="btn btn-sm btn-primary" onclick="navegar('grupos')">Ver todos →</button>
+            </div>
+            <div id="gruposRecientes" class="panel-body"></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:20px">
+          <div class="panel-header">
+            <h3>🎂 Próximos Cumpleaños</h3>
+          </div>
+          <div id="cumpleaniosPanel" class="panel-body"></div>
+        </div>
+      </section>
+
+      <!-- ===== GRUPOS ===== -->
+      <section id="view-grupos" class="view" hidden>
+        <div class="page-header">
+          <div>
+            <h2 style="color:var(--text);font-size:18px;font-weight:700;">👥 Gestión de Grupos</h2>
+            <h3 style="color:var(--text-secondary);font-size:14px;font-weight:400;">Crea y administra tus grupos de asistencia</h3>
+          </div>
+          <button class="btn btn-primary" onclick="abrirModalGrupo()">➕ Nuevo Grupo</button>
+        </div>
+        <div id="listaGrupos"></div>
+      </section>
+
+      <!-- ===== MIEMBROS ===== -->
+      <section id="view-miembros" class="view" hidden>
+        <div class="page-header">
+          <div>
+            <h2 style="color:var(--text);font-size:18px;font-weight:700;">🧑‍🤝‍🧑 Gestión de Miembros</h2>
+            <h3 style="color:var(--text-secondary);font-size:14px;font-weight:400;">Administra las personas de cada grupo</h3>
+          </div>
+          <button class="btn btn-primary" onclick="abrirModalMiembro()">➕ Nuevo Miembro</button>
+        </div>
+        <div class="table-container">
+          <div class="table-header">
+            <input id="busquedaMiembros" type="search" placeholder="Buscar por nombre, teléfono, email..." oninput="renderMiembros()">
+            <select id="filtroGrupoMiembros" onchange="renderMiembros()">
+              <option value="todos">Todos los grupos</option>
+            </select>
+          </div>
+          <div id="tablaMiembros"></div>
+        </div>
+      </section>
+
+      <!-- ===== PASAR LISTA ===== -->
+      <section id="view-pasarlista" class="view" hidden>
+        <div class="page-header">
+          <div>
+            <h2 style="color:var(--text);font-size:18px;font-weight:700;">📋 Pasar Lista</h2>
+            <h3 style="color:var(--text-secondary);font-size:14px;font-weight:400;">Marca la asistencia de cada miembro</h3>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <h3>Seleccionar Grupo y Fecha</h3>
+          </div>
+          <div class="panel-body">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr auto">
+              <div class="form-group">
+                <label>Grupo *</label>
+                <select id="plistGrupo" onchange="cargarPasarLista()">
+                  <option value="">Seleccionar grupo...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Fecha *</label>
+                <input id="plistFecha" type="date" onchange="cargarPasarLista()">
+              </div>
+              <div class="form-group" style="justify-content:flex-end">
+                <button class="btn btn-primary" onclick="guardarPasarLista()" id="btnGuardarLista" disabled>💾 Guardar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Acciones rápidas -->
+        <div id="plistAcciones" class="panel" style="margin-top:16px" hidden>
+          <div class="panel-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:13px;font-weight:600;color:var(--text-secondary)">Acciones rápidas:</span>
+            <button class="btn btn-sm btn-success" onclick="marcarTodos('present')">✅ Todos Presentes</button>
+            <button class="btn btn-sm btn-danger" onclick="marcarTodos('absent')">❌ Todos Ausentes</button>
+            <button class="btn btn-sm" onclick="marcarTodos('late')">⏰ Todos con Retardo</button>
+            <button class="btn btn-sm" onclick="marcarTodos('permission')">📋 Todos con Permiso</button>
+            <button class="btn btn-sm" onclick="limpiarLista()">🔄 Limpiar</button>
+          </div>
+        </div>
+
+        <!-- Lista de miembros -->
+        <div id="plistMiembros" style="margin-top:16px"></div>
+
+        <!-- Resumen -->
+        <div id="plistResumen" class="panel" style="margin-top:16px" hidden>
+          <div class="panel-body">
+            <div id="plistResumenContent"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== HISTORIAL ===== -->
+      <section id="view-historial" class="view" hidden>
+        <div class="page-header">
+          <div>
+            <h2 style="color:var(--text);font-size:18px;font-weight:700;">📅 Historial de Asistencia</h2>
+            <h3 style="color:var(--text-secondary);font-size:14px;font-weight:400;">Consulta registros passados</h3>
+          </div>
+          <div class="btn-group">
+            <button class="btn" onclick="exportarHistorialCSV()">📥 CSV</button>
+            <button class="btn btn-primary" onclick="generarPDFHistorial()">📄 PDF</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <h3>Filtros</h3>
+          </div>
+          <div class="panel-body">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr auto">
+              <div class="form-group">
+                <label>Grupo</label>
+                <select id="histGrupo" onchange="renderHistorial()">
+                  <option value="todos">Todos los grupos</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Desde</label>
+                <input id="histDesde" type="date" onchange="renderHistorial()">
+              </div>
+              <div class="form-group">
+                <label>Hasta</label>
+                <input id="histHasta" type="date" onchange="renderHistorial()">
+              </div>
+              <div class="form-group" style="justify-content:flex-end">
+                <button class="btn btn-sm" onclick="limpiarFiltrosHistorial()">🔄 Limpiar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="tablaHistorial" style="margin-top:16px"></div>
+      </section>
+
+      <!-- ===== CONFIGURACIÓN ===== -->
+      <section id="view-configuracion" class="view" hidden>
+        <div class="page-header">
+          <div>
+            <h2 style="color:var(--text);font-size:18px;font-weight:700;">⚙️ Configuración</h2>
+            <h3 style="color:var(--text-secondary);font-size:14px;font-weight:400;">Datos de la empresa para los reportes PDF</h3>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><h3>Datos de la Empresa</h3></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Nombre de la Empresa</label>
+                <input id="cfgNombre" placeholder="Ej: Academia Deportiva S.A.">
+              </div>
+              <div class="form-group">
+                <label>RTN / Identificación</label>
+                <input id="cfgRtn" placeholder="Ej: 0801-1990-12345">
+              </div>
+              <div class="form-group">
+                <label>Dirección</label>
+                <input id="cfgDireccion" placeholder="Ej: Blvd. Los Próceres, Tegucigalpa">
+              </div>
+              <div class="form-group">
+                <label>Teléfono</label>
+                <input id="cfgTelefono" placeholder="Ej: +504 2234-5678">
+              </div>
+              <div class="form-group">
+                <label>Email</label>
+                <input id="cfgEmail" type="email" placeholder="Ej: info@empresa.com">
+              </div>
+              <div class="form-group">
+                <label>Representante</label>
+                <input id="cfgRepresentante" placeholder="Ej: Juan Pérez, Director">
+              </div>
+              <div class="form-group full-width">
+                <label>Logo de la Empresa</label>
+                <div class="logo-upload">
+                  <div id="cfgLogoPreview" class="logo-preview">
+                    <span class="placeholder">🏢</span>
+                  </div>
+                  <div>
+                    <input type="file" id="cfgLogoFile" accept="image/*" onchange="cargarLogo(event)" style="margin-bottom:8px">
+                    <br>
+                    <button class="btn btn-sm btn-danger" onclick="quitarLogo()">🗑 Quitar logo</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+              <button class="btn btn-primary" onclick="guardarConfig()">💾 Guardar Configuración</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cambiar Empresa -->
+        <div class="panel" style="margin-top:20px">
+          <div class="panel-header"><h3>🏢 Empresa Activa</h3></div>
+          <div class="panel-body">
+            <div id="currentUserInfo" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-alt);border-radius:10px;margin-bottom:12px">
+              <div id="currentUserIcon" style="width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#fff;background:#059669"></div>
+              <div style="flex:1">
+                <div id="currentUserName" style="font-weight:700;font-size:15px"></div>
+                <div style="font-size:12px;color:var(--text-secondary)">Empresa actual</div>
+              </div>
+            </div>
+            <button class="btn" style="width:100%" onclick="mostrarPantallaUsuarios()">🔄 Cambiar de empresa</button>
+          </div>
+        </div>
+
+        <!-- Respaldo de datos -->
+        <div class="panel" style="margin-top:20px">
+          <div class="panel-header"><h3>💾 Respaldo de Datos</h3></div>
+          <div class="panel-body">
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Exporta todos tus datos (grupos, miembros, asistencia) a un archivo JSON. Puedes importarlo después para restaurar tus datos.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+              <button class="btn btn-primary" onclick="DB.exportar()">📤 Exportar respaldo</button>
+              <button class="btn" onclick="document.getElementById('importFile').click()">📥 Importar respaldo</button>
+              <input type="file" id="importFile" accept=".json" style="display:none" onchange="importarRespaldo(event)">
+            </div>
+
+            <!-- Auto-backup toggle -->
+            <div style="background:var(--surface-alt);border-radius:8px;padding:16px;border:1px solid var(--border)">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <div>
+                  <div style="font-weight:600;font-size:14px">🔄 Respaldo Automático</div>
+                  <div style="font-size:12px;color:var(--text-secondary)">Descarga un respaldo cada 7 días automáticamente</div>
+                </div>
+                <label style="position:relative;display:inline-block;width:50px;height:28px;cursor:pointer">
+                  <input type="checkbox" id="autoBackupToggle" onchange="toggleAutoBackup(this.checked)" style="opacity:0;width:0;height:0">
+                  <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#cbd5e1;border-radius:28px;transition:.3s"></span>
+                  <span id="autoBackupSlider" style="position:absolute;cursor:pointer;top:3px;left:3px;width:22px;height:22px;background:white;border-radius:50%;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.2)"></span>
+                </label>
+              </div>
+              <div id="autoBackupInfo" style="font-size:11px;color:var(--text-muted)"></div>
+            </div>
+
+            <div id="lastSavedInfo" style="margin-top:12px;font-size:12px;color:var(--text-muted)"></div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ===== REPORTES ===== -->
+      <section id="view-reportes" class="view" hidden>
+        <div class="page-header">
+          <div>
+            <h2 style="color:var(--text);font-size:18px;font-weight:700;">📈 Reportes de Asistencia</h2>
+            <h3 style="color:var(--text-secondary);font-size:14px;font-weight:400;">Análisis y porcentajes de asistencia</h3>
+          </div>
+          <div class="btn-group">
+            <button class="btn" onclick="exportarReporteCSV()">📥 CSV</button>
+            <button class="btn btn-primary" onclick="generarPDFReporte()">📄 PDF</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">
+            <h3>Parámetros del Reporte</h3>
+          </div>
+          <div class="panel-body">
+            <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr auto">
+              <div class="form-group">
+                <label>Grupo</label>
+                <select id="repoGrupo" onchange="renderReporte()">
+                  <option value="">Seleccionar grupo...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Desde</label>
+                <input id="repoDesde" type="date" onchange="renderReporte()">
+              </div>
+              <div class="form-group">
+                <label>Hasta</label>
+                <input id="repoHasta" type="date" onchange="renderReporte()">
+              </div>
+              <div class="form-group" style="justify-content:flex-end">
+                <button class="btn btn-primary btn-sm" onclick="renderReporte()">📊 Generar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="reporteContent" style="margin-top:16px"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: GRUPO ============ -->
+  <div id="modalGrupo" class="modal-overlay" hidden onclick="if(event.target===this)this.hidden=true">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalGrupoTitle">👥 Nuevo Grupo</h3>
+        <button class="modal-close" onclick="cerrarModalGrupo()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label>Nombre del Grupo *</label>
+            <input id="grupoNombre" placeholder="Ej: Grupo A, Clase de Matemáticas, Equipo de Ventas">
+          </div>
+          <div class="form-group full-width">
+            <label>Descripción</label>
+            <textarea id="grupoDescripcion" rows="3" placeholder="Descripción opcional del grupo"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Color de Identificación</label>
+            <select id="grupoColor">
+              <option value="#3b82f6">🔵 Azul</option>
+              <option value="#059669">🟢 Verde</option>
+              <option value="#d97706">🟡 Amarillo</option>
+              <option value="#dc2626">🔴 Rojo</option>
+              <option value="#7c3aed">🟣 Morado</option>
+              <option value="#ec4899">🩷 Rosa</option>
+              <option value="#0891b2">🩵 Cyan</option>
+              <option value="#ea580c">🟠 Naranja</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Estado</label>
+            <select id="grupoEstado">
+              <option value="activo">🟢 Activo</option>
+              <option value="inactivo">🔴 Inactivo</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="cerrarModalGrupo()">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarGrupoForm()">💾 Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: MIEMBRO ============ -->
+  <div id="modalMiembro" class="modal-overlay" hidden onclick="if(event.target===this)this.hidden=true">
+    <div class="modal" style="max-width:640px">
+      <div class="modal-header">
+        <h3 id="modalMiembroTitle">🧑‍🤝‍🧑 Nuevo Miembro</h3>
+        <button class="modal-close" onclick="cerrarModalMiembro()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Grupo *</label>
+            <select id="miembroGrupo">
+              <option value="">Seleccionar grupo...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Nombre Completo *</label>
+            <input id="miembroNombre" placeholder="Nombre y apellido">
+          </div>
+          <div class="form-group">
+            <label>Teléfono</label>
+            <input id="miembroTelefono" placeholder="Ej: +504 9999-0000">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input id="miembroEmail" type="email" placeholder="correo@ejemplo.com">
+          </div>
+          <div class="form-group">
+            <label>Cargo</label>
+            <input id="miembroCargo" placeholder="Ej: Gerente, Asistente, Técnico">
+          </div>
+          <div class="form-group">
+            <label>Sueldo Base (L.)</label>
+            <input id="miembroSueldo" type="number" min="0" step="0.01" placeholder="Ej: 8000.00">
+          </div>
+          <div class="form-group">
+            <label>Fecha de Nacimiento</label>
+            <input id="miembroCumple" type="date">
+          </div>
+          <div class="form-group">
+            <label>Estado</label>
+            <select id="miembroEstado">
+              <option value="activo">🟢 Activo</option>
+              <option value="inactivo">🔴 Inactivo</option>
+            </select>
+          </div>
+          <div class="form-group full-width">
+            <label>Notas</label>
+            <textarea id="miembroNotas" rows="2" placeholder="Información adicional sobre el miembro"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="cerrarModalMiembro()">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarMiembroForm()">💾 Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: CONFIRMACIÓN ============ -->
+  <div id="modalConfirm" class="modal-overlay" hidden onclick="if(event.target===this)this.hidden=true">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <h3 id="confirmTitle">Confirmar</h3>
+        <button class="modal-close" onclick="cerrarConfirm()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMsg"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="cerrarConfirm()">Cancelar</button>
+        <button id="confirmBtn" class="btn btn-danger">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: NOTAS ============ -->
+  <div id="modalNotas" class="modal-overlay" hidden onclick="if(event.target===this)this.hidden=true">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <h3>📝 Nota del Registro</h3>
+        <button class="modal-close" onclick="cerrarModalNotas()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Nota (opcional)</label>
+          <textarea id="notaRegistro" rows="4" placeholder="Ej: Llegó 10 minutos tarde, salió antes, etc."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="cerrarModalNotas()">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarNota()">💾 Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TOAST CONTAINER ============ -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- ============ SCRIPTS ============ -->
+  <script src="jspdf.umd.min.js"></script>
+  <script src="jspdf.plugin.autotable.min.js"></script>
+  <script src="db.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
