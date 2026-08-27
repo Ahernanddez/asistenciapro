@@ -1750,7 +1750,6 @@ function cargarLogo(event) {
 
   toast('Procesando logo...', 'info');
 
-  // Fixed size: 200x150px, JPEG 60% = ~3-8KB
   const FIXED_W = 200;
   const FIXED_H = 150;
 
@@ -1763,11 +1762,9 @@ function cargarLogo(event) {
       canvas.height = FIXED_H;
       const ctx = canvas.getContext('2d');
 
-      // White background
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, FIXED_W, FIXED_H);
 
-      // Aspect-fit: center image without distortion
       const imgRatio = img.width / img.height;
       const canvasRatio = FIXED_W / FIXED_H;
       let drawW, drawH, drawX, drawY;
@@ -1786,24 +1783,15 @@ function cargarLogo(event) {
 
       ctx.drawImage(img, drawX, drawY, drawW, drawH);
 
-      // JPEG 60% quality for smallest size
       const resizedData = canvas.toDataURL('image/jpeg', 0.6);
       const sizeKB = Math.round((resizedData.length * 3 / 4) / 1024);
 
       try {
         const cfg = obtenerConfig();
         cfg.logo = resizedData;
-        await guardarConfigData(cfg);
-
-        if (cfg.logo && cfg.logo.length > 50) {
-          $('#cfgLogoPreview').innerHTML = '<img src="' + resizedData + '" alt="Logo">';
-          toast('Logo guardado (' + sizeKB + 'KB)', 'success');
-        } else {
-          toast('Error al guardar el logo', 'error');
-        }
-      } catch (err) {
-        toast('Error: ' + err.message, 'error');
-      }
+        guardarConfigData(cfg);
+        $('#cfgLogoPreview').innerHTML = '<img src="' + resizedData + '" alt="Logo">';
+        toast('Logo guardado (' + sizeKB + 'KB)', 'success');
       } catch (err) {
         toast('Error: ' + err.message, 'error');
       }
@@ -1812,7 +1800,6 @@ function cargarLogo(event) {
   };
   reader.readAsDataURL(file);
 }
-
 function quitarLogo() {
   const cfg = obtenerConfig();
   cfg.logo = '';
