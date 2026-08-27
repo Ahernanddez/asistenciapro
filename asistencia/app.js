@@ -181,6 +181,7 @@ function toggleSidebar() {
 let currentView = 'dashboard';
 
 
+
 function navegar(view) {
   if (view === currentView) return;
   currentView = view;
@@ -203,31 +204,46 @@ function navegar(view) {
   // Nav highlight
   $$('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
 
+  // Get animation config
+  const animCfg = getAnimConfig();
+  const animType = ANIM_TYPES.find(a => a.id === animCfg.tipo) || ANIM_TYPES[1];
+  const speed = ANIM_SPEEDS.find(s => s.value === animCfg.velocidad) || ANIM_SPEEDS[1];
+  const exitDur = Math.round(speed.duration * 0.6);
+
   // Find currently visible view
   const current = $$('.view').find(v => !v.hidden);
 
   // If same view or no current view, just show directly
   if (!current || current.id === `view-${view}`) {
     const el = $(`#view-${view}`);
-    if (el) { el.hidden = false; el.style.animation = 'none'; el.offsetHeight; el.style.animation = ''; }
+    if (el) {
+      el.hidden = false;
+      el.style.animation = 'none';
+      el.offsetHeight;
+      el.style.animation = `${animType.enter} ${speed.duration}ms ease both`;
+    }
     renderView(view);
     return;
   }
 
-  // Fade out current view
-  current.classList.add('view-exit');
+  // Exit animation on current view
+  current.style.animation = `${animType.exit} ${exitDur}ms ease both`;
   setTimeout(() => {
     current.hidden = true;
-    current.classList.remove('view-exit');
+    current.style.animation = '';
 
-    // Show new view
+    // Enter animation on new view
     const el = $(`#view-${view}`);
-    if (el) { el.hidden = false; el.style.animation = 'none'; el.offsetHeight; el.style.animation = ''; }
+    if (el) {
+      el.hidden = false;
+      el.style.animation = 'none';
+      el.offsetHeight;
+      el.style.animation = `${animType.enter} ${speed.duration}ms ease both`;
+    }
 
     renderView(view);
-  }, 150);
+  }, exitDur);
 }
-
 function renderView(view) {
   switch (view) {
     case 'dashboard': renderDashboard(); break;
@@ -1346,6 +1362,100 @@ function descargarCSV(contenido, nombre) {
 }
 
 /* ============ CONFIGURACIÓN ============ */
+
+/* ============ ANIMATION SETTINGS ============ */
+const ANIM_TYPES = [
+  { id: 'fade',     icon: '✨', name: 'Fade',       desc: 'Opacidad suave',     enter: 'animFadeIn',     exit: 'animFadeOut' },
+  { id: 'slideUp',  icon: '⬆️', name: 'Slide Up',   desc: 'Deslizar hacia arriba', enter: 'animSlideUpIn',  exit: 'animSlideUpOut' },
+  { id: 'slideDown',icon: '⬇️', name: 'Slide Down', desc: 'Deslizar hacia abajo',  enter: 'animSlideDownIn',exit: 'animSlideDownOut' },
+  { id: 'slideLeft',icon: '⬅️', name: 'Slide Left', desc: 'Deslizar a la izquierda', enter: 'animSlideLeftIn', exit: 'animSlideLeftOut' },
+  { id: 'zoom',     icon: '🔍', name: 'Zoom',       desc: 'Efecto de zoom',      enter: 'animZoomIn',     exit: 'animZoomOut' },
+  { id: 'bounce',   icon: '🏀', name: 'Bounce',     desc: 'Rebote elástico',     enter: 'animBounceIn',   exit: 'animBounceOut' },
+  { id: 'flip',     icon: '🔄', name: 'Flip',       desc: 'Giro 3D horizontal',  enter: 'animFlipIn',     exit: 'animFlipOut' },
+  { id: 'rotate',   icon: '🌀', name: 'Rotate',     desc: 'Giro con zoom',       enter: 'animRotateIn',   exit: 'animRotateOut' },
+];
+
+const ANIM_SPEEDS = [
+  { value: 0, label: 'Lento',   duration: 500 },
+  { value: 1, label: 'Normal',  duration: 250 },
+  { value: 2, label: 'Rápido',  duration: 120 },
+];
+
+function getAnimConfig() {
+  const cfg = obtenerConfig();
+  return cfg.animacion || { tipo: 'slideUp', velocidad: 1 };
+}
+
+async function saveAnimConfig(tipo, velocidad) {
+  const cfg = obtenerConfig();
+  cfg.animacion = { tipo, velocidad };
+  await guardarConfigData(cfg);
+  applyAnimConfig(tipo, velocidad);
+}
+
+function applyAnimConfig(tipo, velocidad) {
+  const speed = ANIM_SPEEDS.find(s => s.value === velocidad) || ANIM_SPEEDS[1];
+  const dur = speed.duration;
+  document.documentElement.style.setProperty('--anim-enter-duration', dur + 'ms');
+  document.documentElement.style.setProperty('--anim-exit-duration', Math.round(dur * 0.6) + 'ms');
+}
+
+function renderAnimTypeGrid() {
+  const cfg = getAnimConfig();
+  const grid = $('#animTypeGrid');
+  if (!grid) return;
+  grid.innerHTML = ANIM_TYPES.map(a => `
+    <div class="anim-type-card ${a.id === cfg.tipo ? 'active' : ''}" onclick="seleccionarAnimacion('${a.id}')">
+      <div class="anim-icon">${a.icon}</div>
+      <div class="anim-name">${a.name}</div>
+      <div class="anim-desc">${a.desc}</div>
+    </div>
+  `).join('');
+
+  // Set speed slider
+  const slider = $('#animSpeed');
+  const label = $('#animSpeedLabel');
+  if (slider) slider.value = cfg.velocidad;
+  if (label) label.textContent = ANIM_SPEEDS[cfg.velocidad].label;
+}
+
+async function seleccionarAnimacion(tipo) {
+  const cfg = getAnimConfig();
+  await saveAnimConfig(tipo, cfg.velocidad);
+  renderAnimTypeGrid();
+  toast('Animación cambiada a: ' + ANIM_TYPES.find(a => a.id === tipo).name, 'success');
+}
+
+async function cambiarVelocidadAnimacion(value) {
+  const v = parseInt(value);
+  const cfg = getAnimConfig();
+  await saveAnimConfig(cfg.tipo, v);
+  const label = $('#animSpeedLabel');
+  if (label) label.textContent = ANIM_SPEEDS[v].label;
+}
+
+function probarAnimacion() {
+  const cfg = getAnimConfig();
+  const anim = ANIM_TYPES.find(a => a.id === cfg.tipo);
+  if (!anim) return;
+  const speed = ANIM_SPEEDS[cfg.velocidad];
+  const box = $('#animPreviewBox');
+
+  // Create preview element
+  box.innerHTML = '<div class="preview-target" id="previewAnimEl">Preview</div>';
+  const el = $('#previewAnimEl');
+
+  // Apply the selected animation
+  el.style.animation = `${anim.enter} ${speed.duration}ms ease both`;
+
+  // After enter animation, play exit then enter again
+  setTimeout(() => {
+    el.style.animation = `${anim.exit} ${Math.round(speed.duration * 0.6)}ms ease both`;
+    setTimeout(() => {
+      el.style.animation = `${anim.enter} ${speed.duration}ms ease both`;
+    }, Math.round(speed.duration * 0.6));
+  }, speed.duration + 200);
+}
 function renderConfiguracion() {
   const cfg = obtenerConfig();
   $('#cfgNombre').value = cfg.nombre || '';
@@ -1388,6 +1498,11 @@ function renderConfiguracion() {
 
   // Update auto-backup toggle and info
   updateAutoBackupInfo();
+
+  // Render animation settings
+  renderAnimTypeGrid();
+  const animCfg = getAnimConfig();
+  applyAnimConfig(animCfg.tipo, animCfg.velocidad);
 }
 
 function importarRespaldo(event) {
@@ -2085,6 +2200,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize IndexedDB (migrates from localStorage if needed)
   await DB.init();
 
+
+  // Apply saved animation config
+  try {
+    const animCfg = getAnimConfig();
+    applyAnimConfig(animCfg.tipo, animCfg.velocidad);
+  } catch(e) {}
   // Show user selection if multiple users, or go straight to app
   const users = await DB.getUserList();
   if (users.length > 1) {

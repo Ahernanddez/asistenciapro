@@ -350,6 +350,41 @@
           </div>
         </div>
 
+
+        <!-- Animaciones -->
+        <div class="panel" style="margin-top:20px">
+          <div class="panel-header"><h3>🎬 Animaciones y Transiciones</h3></div>
+          <div class="panel-body">
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Personaliza las animaciones de la aplicación. Selecciona un estilo y ajusta la velocidad.</p>
+
+            <!-- Velocidad -->
+            <div style="margin-bottom:20px">
+              <label style="font-weight:600;font-size:14px;display:block;margin-bottom:8px">⚡ Velocidad</label>
+              <div style="display:flex;align-items:center;gap:16px">
+                <input type="range" id="animSpeed" min="0" max="2" step="1" value="1" onchange="cambiarVelocidadAnimacion(this.value)" style="flex:1">
+                <span id="animSpeedLabel" style="font-size:13px;font-weight:600;color:var(--primary);min-width:80px;text-align:center">Normal</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:4px">
+                <span>🐢 Lento</span><span>⚡ Normal</span><span>🚀 Rápido</span>
+              </div>
+            </div>
+
+            <!-- Tipo de animación de vista -->
+            <div style="margin-bottom:20px">
+              <label style="font-weight:600;font-size:14px;display:block;margin-bottom:8px">🎭 Animación de Pantalla</label>
+              <div id="animTypeGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px"></div>
+            </div>
+
+            <!-- Preview -->
+            <div style="margin-bottom:16px">
+              <label style="font-weight:600;font-size:14px;display:block;margin-bottom:8px">👁️ Vista Previa</label>
+              <div id="animPreviewBox" style="background:var(--surface-alt);border:2px dashed var(--border);border-radius:12px;padding:20px;text-align:center;min-height:80px;display:flex;align-items:center;justify-content:center">
+                <span style="color:var(--text-muted);font-size:13px">Selecciona una animación y toca "Probar"</span>
+              </div>
+              <button class="btn btn-primary" style="margin-top:12px" onclick="probarAnimacion()">▶️ Probar Animación</button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- ===== REPORTES ===== -->
