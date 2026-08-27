@@ -2364,8 +2364,18 @@ window.addEventListener('appinstalled', () => {
    INIT
    ============================================================ */
 
-document.addEventListener('DOMContentLoaded', async () => {
-  // Register service worker with auto-update detection
+
+document.addEventListener('DOMContentLoaded', () => {
+  // ALWAYS hide splash after 5 seconds no matter what
+  setTimeout(() => {
+    const splash = $('#splashScreen');
+    if (splash) {
+      splash.classList.add('fade-out');
+      setTimeout(() => splash.remove(), 600);
+    }
+  }, 5000);
+
+  // Register service worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').then(reg => {
       setInterval(() => reg.update(), 30 * 60 * 1000);
@@ -2378,15 +2388,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     }).catch(() => {});
     navigator.serviceWorker.addEventListener('message', event => {
       if (event.data && event.data.type === 'FORCE_RELOAD') {
-        window.location.reload();
+        // Only reload once per session
+        if (!sessionStorage.getItem('asp_reloaded')) {
+          sessionStorage.setItem('asp_reloaded', '1');
+          window.location.reload();
+        }
       }
     });
   }
 
-  // Initialize IndexedDB
+  // Initialize app (async, but splash hides regardless)
+  initApp().catch(err => {
+    console.error('Init error:', err);
+  });
+});
+
+async function initApp() {
   await DB.init();
-
-
 
   // Apply saved animation config
   try {
@@ -2394,32 +2412,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     applyAnimConfig(animCfg.tipo, animCfg.velocidad);
   } catch(e) {}
 
-
-  // Hide splash screen after 5 seconds
-  const splash = $('#splashScreen');
-  if (splash) {
-    setTimeout(() => {
-      splash.classList.add('fade-out');
-      setTimeout(() => splash.remove(), 600);
-    }, 5000);
-  }
-  // Show user selection if multiple users, or go straight to app
+  // Show user selection or dashboard
   const users = await DB.getUserList();
   if (users.length > 1) {
-    // Show user selection screen
     await renderUserScreen();
     $('#userScreen').classList.remove('hidden');
   } else {
-    // Single user — skip selection
     $('#userScreen').classList.add('hidden');
     renderDashboard();
     updateUserFooter();
   }
 
-  // Auto-backup check: backup every 7 days if enabled
+  // Auto-backup check
   setTimeout(() => {
     if (DB.autoBackup(7)) {
       toast('\ud83d\udcc4 Respaldo autom\u00e1tico descargado', 'success');
     }
   }, 2000);
-});
+}
