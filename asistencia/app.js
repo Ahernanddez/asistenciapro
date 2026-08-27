@@ -115,22 +115,11 @@ function showUpdateToast() {
   const container = $('#toastContainer');
   const div = document.createElement('div');
   div.className = 'toast';
-  div.style.cssText = 'background:#059669;color:#fff;padding:14px 18px;border-radius:12px;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:360px;cursor:pointer;z-index:9999';
-  div.innerHTML = '<span style="flex:1">\u{1F504} Nueva versi\u00f3n disponible</span>';
-  const btn = document.createElement('button');
-  btn.textContent = 'Recargar';
-  btn.style.cssText = 'background:#fff;color:#059669;border:none;padding:6px 14px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap';
-  btn.onclick = e => { e.stopPropagation(); window.location.reload(); };
-  div.appendChild(btn);
-  div.onclick = () => window.location.reload();
+  div.style.cssText = 'background:#059669;color:#fff;padding:14px 18px;border-radius:12px;display:flex;align-items:center;gap:12px;font-size:14px;font-weight:500;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:360px;z-index:9999';
+  div.innerHTML = '<span style="flex:1">\u{1F504} Actualizando...</span>';
   container.appendChild(div);
-  // Auto-dismiss after 30 seconds
-  setTimeout(() => {
-    div.style.transition = 'opacity .4s, transform .4s';
-    div.style.opacity = '0';
-    div.style.transform = 'translateY(6px)';
-    setTimeout(() => div.remove(), 400);
-  }, 30000);
+  // Auto-reload after 1.5s to apply new version seamlessly
+  setTimeout(() => window.location.reload(), 1500);
 }
 
 function formatearFecha(fecha) {
