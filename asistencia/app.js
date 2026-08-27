@@ -1823,6 +1823,7 @@ async function guardarConfig() {
   await guardarConfigData(cfg);
   toast('Configuración guardada', 'success');
 
+}
 /* ============ PDF GENERATION ============ */
 function generarPDFHistorial() {
   const filtros = {
