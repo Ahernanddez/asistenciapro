@@ -58,9 +58,14 @@ async function renderUserScreen() {
 
 async function seleccionarUsuario(userId) {
   await DB.switchUser(userId);
-  $('#userScreen').classList.add('hidden');
-  renderDashboard();
-  updateUserFooter();
+  const screen = $('#userScreen');
+  screen.classList.add('fade-out');
+  setTimeout(() => {
+    screen.classList.add('hidden');
+    screen.classList.remove('fade-out');
+    renderDashboard();
+    updateUserFooter();
+  }, 300);
 }
 
 async function crearUsuario() {
@@ -175,13 +180,10 @@ function toggleSidebar() {
 
 let currentView = 'dashboard';
 
-function navegar(view) {
-  currentView = view;
-  $$('.view').forEach(v => v.hidden = true);
-  const el = $(`#view-${view}`);
-  if (el) el.hidden = false;
 
-  $$('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
+function navegar(view) {
+  if (view === currentView) return;
+  currentView = view;
 
   const titles = {
     dashboard: 'Dashboard',
@@ -198,7 +200,35 @@ function navegar(view) {
   $('#sidebar').classList.remove('open');
   $('#sidebarOverlay').classList.remove('open');
 
-  // Renderizar vista
+  // Nav highlight
+  $$('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
+
+  // Find currently visible view
+  const current = $$('.view').find(v => !v.hidden);
+
+  // If same view or no current view, just show directly
+  if (!current || current.id === `view-${view}`) {
+    const el = $(`#view-${view}`);
+    if (el) { el.hidden = false; el.style.animation = 'none'; el.offsetHeight; el.style.animation = ''; }
+    renderView(view);
+    return;
+  }
+
+  // Fade out current view
+  current.classList.add('view-exit');
+  setTimeout(() => {
+    current.hidden = true;
+    current.classList.remove('view-exit');
+
+    // Show new view
+    const el = $(`#view-${view}`);
+    if (el) { el.hidden = false; el.style.animation = 'none'; el.offsetHeight; el.style.animation = ''; }
+
+    renderView(view);
+  }, 150);
+}
+
+function renderView(view) {
   switch (view) {
     case 'dashboard': renderDashboard(); break;
     case 'grupos': renderGrupos(); break;
@@ -209,7 +239,6 @@ function navegar(view) {
     case 'configuracion': renderConfiguracion(); break;
   }
 }
-
 /* ============ DASHBOARD ============ */
 function renderDashboard() {
   const stats = obtenerEstadisticas();
