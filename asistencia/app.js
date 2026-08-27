@@ -2206,6 +2206,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const animCfg = getAnimConfig();
     applyAnimConfig(animCfg.tipo, animCfg.velocidad);
   } catch(e) {}
+
+  // Hide splash screen
+  const splash = $('#splashScreen');
+  if (splash) {
+    splash.classList.add('fade-out');
+    setTimeout(() => splash.remove(), 600);
+  }
   // Show user selection if multiple users, or go straight to app
   const users = await DB.getUserList();
   if (users.length > 1) {
