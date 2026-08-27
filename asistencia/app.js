@@ -21,6 +21,15 @@ window.addEventListener('unhandledrejection', (e) => {
   e.preventDefault();
 });
 
+// Anti double-click debounce
+const _debouncing = {};
+function debounce(key, fn, ms = 1000) {
+  if (_debouncing[key]) return;
+  _debouncing[key] = true;
+  fn();
+  setTimeout(() => { _debouncing[key] = false; }, ms);
+}
+
 /* ---- Utilidades ---- */
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];

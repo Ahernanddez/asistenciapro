@@ -69,7 +69,7 @@
         <div class="form-group">
           <input type="text" id="newUserName" placeholder="Nombre de la nueva empresa..." maxlength="40" style="text-align:center;font-size:15px;padding:12px">
         </div>
-        <button class="btn btn-primary" style="width:100%;padding:12px;font-size:15px" onclick="crearUsuario()">➕ Crear Empresa</button>
+        <button class="btn btn-primary" style="width:100%;padding:12px;font-size:15px" onclick="debounce("crear", crearUsuario)">➕ Crear Empresa</button>
       </div>
     </div>
   </div>
@@ -210,7 +210,7 @@
                 <input id="plistFecha" type="date" onchange="cargarPasarLista()">
               </div>
               <div class="form-group" style="justify-content:flex-end">
-                <button class="btn btn-primary" onclick="guardarPasarLista()" id="btnGuardarLista" disabled>💾 Guardar</button>
+                <button class="btn btn-primary" onclick="debounce("lista", guardarPasarLista)" id="btnGuardarLista" disabled>💾 Guardar</button>
               </div>
             </div>
           </div>
@@ -331,7 +331,7 @@
               </div>
             </div>
             <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
-              <button class="btn btn-primary" onclick="guardarConfig()">💾 Guardar Configuración</button>
+              <button class="btn btn-primary" onclick="debounce("config", guardarConfig)">💾 Guardar Configuración</button>
             </div>
           </div>
         </div>
@@ -357,7 +357,7 @@
           <div class="panel-body">
             <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Exporta todos tus datos (grupos, miembros, asistencia) a un archivo JSON. Puedes importarlo después para restaurar tus datos.</p>
             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-              <button class="btn btn-primary" onclick="DB.exportar()">📤 Exportar respaldo</button>
+              <button class="btn btn-primary" onclick="debounce("export", DB.exportar)">📤 Exportar respaldo</button>
               <button class="btn" onclick="document.getElementById('importFile').click()">📥 Importar respaldo</button>
               <input type="file" id="importFile" accept=".json" style="display:none" onchange="importarRespaldo(event)">
             </div>
@@ -506,7 +506,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn" onclick="cerrarModalGrupo()">Cancelar</button>
-        <button class="btn btn-primary" onclick="guardarGrupoForm()">💾 Guardar</button>
+        <button class="btn btn-primary" onclick="debounce("grupo", guardarGrupoForm)">💾 Guardar</button>
       </div>
     </div>
   </div>
@@ -565,7 +565,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn" onclick="cerrarModalMiembro()">Cancelar</button>
-        <button class="btn btn-primary" onclick="guardarMiembroForm()">💾 Guardar</button>
+        <button class="btn btn-primary" onclick="debounce("miembro", guardarMiembroForm)">💾 Guardar</button>
       </div>
     </div>
   </div>
