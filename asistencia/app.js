@@ -2377,12 +2377,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }).catch(() => {});
     navigator.serviceWorker.addEventListener('message', event => {
-      if (event.data && event.data.type === 'SW_UPDATED') showUpdateToast();
+      if (event.data && event.data.type === 'FORCE_RELOAD') {
+        window.location.reload();
+      }
     });
   }
 
-  // Initialize IndexedDB (migrates from localStorage if needed)
+  // Initialize IndexedDB
   await DB.init();
+
 
 
   // Apply saved animation config
