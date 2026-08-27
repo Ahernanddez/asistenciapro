@@ -1431,12 +1431,11 @@ function setPinRemembered(userId, val) {
 function showLoginScreen(userId) {
   loginPinBuffer = '';
   loginTargetUser = userId;
+  $('#userScreen').classList.add('hidden');
   const screen = $('#loginScreen');
   screen.classList.remove('hidden');
   updatePinDots();
   $('#loginError').hidden = true;
-
-  // Show user name
   DB.getUserList().then(users => {
     const user = users.find(u => u.id === userId);
     if (user) {
@@ -1444,7 +1443,6 @@ function showLoginScreen(userId) {
     }
   });
 }
-
 function hideLoginScreen() {
   $('#loginScreen').classList.add('hidden');
   loginPinBuffer = '';
