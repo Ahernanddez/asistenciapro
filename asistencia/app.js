@@ -2388,10 +2388,23 @@ async function initApp() {
   if (users.length > 1) {
     await renderUserScreen();
     $('#userScreen').classList.remove('hidden');
+  } else if (users.length === 1) {
+    // Single user — check PIN before entering
+    const userId = users[0].id;
+    const hasPin = await hasUserPin(userId);
+    const remembered = isPinRemembered(userId);
+    if (hasPin && !remembered) {
+      showLoginScreen(userId);
+    } else {
+      await DB.switchUser(userId);
+      $('#userScreen').classList.add('hidden');
+      renderDashboard();
+      updateUserFooter();
+    }
   } else {
-    $('#userScreen').classList.add('hidden');
-    renderDashboard();
-    updateUserFooter();
+    // No users — show creation screen
+    $('#userScreen').classList.remove('hidden');
+    await renderUserScreen();
   }
 
   // Auto-backup check
