@@ -57,6 +57,17 @@ async function renderUserScreen() {
 }
 
 async function seleccionarUsuario(userId) {
+  // Check if user has PIN and it's not remembered
+  const hasPin = await hasUserPin(userId);
+  const remembered = isPinRemembered(userId);
+
+  if (hasPin && !remembered) {
+    // Show login screen
+    showLoginScreen(userId);
+    return;
+  }
+
+  // No PIN or remembered — proceed
   await DB.switchUser(userId);
   const screen = $('#userScreen');
   screen.classList.add('fade-out');
@@ -1363,6 +1374,176 @@ function descargarCSV(contenido, nombre) {
 
 /* ============ CONFIGURACIÓN ============ */
 
+
+/* ============ LOGIN / PIN SYSTEM ============ */
+let loginPinBuffer = '';
+let loginTargetUser = null;
+const PIN_LENGTH = 6;
+
+// Simple hash for PIN (not cryptographic, but sufficient for local app)
+function hashPin(pin) {
+  let hash = 0;
+  const str = 'asp_' + pin + '_salt';
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return 'h_' + Math.abs(hash).toString(36);
+}
+
+async function setUserPin(userId, pin) {
+  const cfg = obtenerConfig();
+  if (!cfg.pins) cfg.pins = {};
+  cfg.pins[userId] = hashPin(pin);
+  await guardarConfigData(cfg);
+}
+
+async function verifyUserPin(userId, pin) {
+  const cfg = obtenerConfig();
+  if (!cfg.pins || !cfg.pins[userId]) return true; // No PIN set = allow access
+  return cfg.pins[userId] === hashPin(pin);
+}
+
+async function hasUserPin(userId) {
+  const cfg = obtenerConfig();
+  return !!(cfg.pins && cfg.pins[userId]);
+}
+
+async function removeUserPin(userId) {
+  const cfg = obtenerConfig();
+  if (cfg.pins) {
+    delete cfg.pins[userId];
+    await guardarConfigData(cfg);
+  }
+}
+
+function isPinRemembered(userId) {
+  return localStorage.getItem('asispro_remember_' + userId) === 'true';
+}
+
+function setPinRemembered(userId, val) {
+  if (val) localStorage.setItem('asispro_remember_' + userId, 'true');
+  else localStorage.removeItem('asispro_remember_' + userId);
+}
+
+// ---- Login Screen ----
+function showLoginScreen(userId) {
+  loginPinBuffer = '';
+  loginTargetUser = userId;
+  const screen = $('#loginScreen');
+  screen.classList.remove('hidden');
+  updatePinDots();
+  $('#loginError').hidden = true;
+
+  // Show user name
+  DB.getUserList().then(users => {
+    const user = users.find(u => u.id === userId);
+    if (user) {
+      $('#loginUserName').textContent = `PIN de "${user.nombre}"`;
+    }
+  });
+}
+
+function hideLoginScreen() {
+  $('#loginScreen').classList.add('hidden');
+  loginPinBuffer = '';
+  loginTargetUser = null;
+}
+
+function pinInput(digit) {
+  if (loginPinBuffer.length >= PIN_LENGTH) return;
+  loginPinBuffer += digit;
+  updatePinDots();
+
+  // Auto-check when PIN is complete
+  if (loginPinBuffer.length === PIN_LENGTH) {
+    setTimeout(() => checkLoginPin(), 150);
+  }
+}
+
+function pinDelete() {
+  loginPinBuffer = loginPinBuffer.slice(0, -1);
+  updatePinDots();
+  $('#loginError').hidden = true;
+}
+
+function updatePinDots() {
+  for (let i = 0; i < PIN_LENGTH; i++) {
+    const dot = $(`#dot${i}`);
+    if (dot) {
+      dot.classList.toggle('filled', i < loginPinBuffer.length);
+      dot.classList.remove('error');
+    }
+  }
+}
+
+async function checkLoginPin() {
+  const valid = await verifyUserPin(loginTargetUser, loginPinBuffer);
+  if (valid) {
+    // Save remember preference
+    const remember = $('#loginRemember').checked;
+    setPinRemembered(loginTargetUser, remember);
+
+    hideLoginScreen();
+    await DB.switchUser(loginTargetUser);
+    $('#userScreen').classList.add('hidden');
+    renderDashboard();
+    updateUserFooter();
+  } else {
+    // Error shake
+    for (let i = 0; i < PIN_LENGTH; i++) {
+      const dot = $(`#dot${i}`);
+      if (dot) dot.classList.add('error');
+    }
+    $('#loginError').hidden = false;
+    loginPinBuffer = '';
+    setTimeout(() => updatePinDots(), 500);
+  }
+}
+
+function volverUserScreen() {
+  hideLoginScreen();
+  $('#userScreen').classList.remove('hidden');
+  renderUserScreen();
+}
+
+// ---- Config: Set/Change/Remove PIN ----
+async function setPinFromConfig() {
+  const pin1 = $('#cfgPin1').value;
+  const pin2 = $('#cfgPin2').value;
+
+  if (pin1.length < 4) { toast('El PIN debe tener al menos 4 dígitos', 'error'); return; }
+  if (pin1.length > PIN_LENGTH) { toast(`El PIN debe tener máximo ${PIN_LENGTH} dígitos`, 'error'); return; }
+  if (pin1 !== pin2) { toast('Los PINs no coinciden', 'error'); return; }
+
+  const userId = DB.getCurrentUser();
+  await setUserPin(userId, pin1);
+  toast('PIN configurado correctamente', 'success');
+  $('#cfgPin1').value = '';
+  $('#cfgPin2').value = '';
+  renderPinStatus();
+}
+
+async function removePinFromConfig() {
+  const userId = DB.getCurrentUser();
+  await removeUserPin(userId);
+  setPinRemembered(userId, false);
+  toast('PIN eliminado', 'success');
+  renderPinStatus();
+}
+
+async function renderPinStatus() {
+  const userId = DB.getCurrentUser();
+  const hasPin = await hasUserPin(userId);
+  const el = $('#pinStatus');
+  if (!el) return;
+  if (hasPin) {
+    el.innerHTML = '<span style="color:var(--success);font-weight:600">🔒 PIN activo</span> — <button class="btn btn-sm btn-danger" onclick="removePinFromConfig()">🗑 Quitar PIN</button>';
+  } else {
+    el.innerHTML = '<span style="color:var(--text-muted)">🔓 Sin PIN</span> — La empresa no tiene protección';
+  }
+}
 /* ============ ANIMATION SETTINGS ============ */
 const ANIM_TYPES = [
   { id: 'fade',     icon: '✨', name: 'Fade',       desc: 'Opacidad suave',     enter: 'animFadeIn',     exit: 'animFadeOut' },
@@ -1503,6 +1684,7 @@ function renderConfiguracion() {
   renderAnimTypeGrid();
   const animCfg = getAnimConfig();
   applyAnimConfig(animCfg.tipo, animCfg.velocidad);
+  renderPinStatus();
 }
 
 function importarRespaldo(event) {
