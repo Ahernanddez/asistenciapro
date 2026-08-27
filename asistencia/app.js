@@ -1793,16 +1793,17 @@ function cargarLogo(event) {
       try {
         const cfg = obtenerConfig();
         cfg.logo = resizedData;
-        localStorage.setItem('asispro_config', JSON.stringify(cfg));
+        await guardarConfigData(cfg);
 
-        // Verify
-        const saved = JSON.parse(localStorage.getItem('asispro_config') || '{}');
-        if (saved.logo && saved.logo.length > 50) {
+        if (cfg.logo && cfg.logo.length > 50) {
           $('#cfgLogoPreview').innerHTML = '<img src="' + resizedData + '" alt="Logo">';
           toast('Logo guardado (' + sizeKB + 'KB)', 'success');
         } else {
-          toast('No se pudo guardar. Libre: ' + Math.round((5*1024*1024 - JSON.stringify(localStorage).length) / 1024) + 'KB', 'error');
+          toast('Error al guardar el logo', 'error');
         }
+      } catch (err) {
+        toast('Error: ' + err.message, 'error');
+      }
       } catch (err) {
         toast('Error: ' + err.message, 'error');
       }
@@ -1821,18 +1822,19 @@ function quitarLogo() {
 }
 
 async function guardarConfig() {
+  const existing = obtenerConfig();
   const cfg = {
+    ...existing,
     nombre: $('#cfgNombre').value.trim(),
     rtn: $('#cfgRtn').value.trim(),
     direccion: $('#cfgDireccion').value.trim(),
     telefono: $('#cfgTelefono').value.trim(),
     email: $('#cfgEmail').value.trim(),
     representante: $('#cfgRepresentante').value.trim(),
-    logo: obtenerConfig().logo || '',
+    logo: existing.logo || '',
   };
   await guardarConfigData(cfg);
   toast('Configuración guardada', 'success');
-}
 
 /* ============ PDF GENERATION ============ */
 function generarPDFHistorial() {
