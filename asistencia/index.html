@@ -53,50 +53,6 @@
     }, 5000);
   </script>
 
-  <!-- ============ LOGIN SCREEN ============ -->
-  <div id="loginScreen" class="login-screen hidden">
-    <div class="login-card">
-      <div class="login-logo">🔐</div>
-      <h1 class="login-title">AsistenciaPro</h1>
-      <p class="login-subtitle" id="loginUserName">Ingresa tu PIN para acceder</p>
-
-      <div id="loginPinDots" class="pin-dots">
-        <div class="pin-dot" id="dot0"></div>
-        <div class="pin-dot" id="dot1"></div>
-        <div class="pin-dot" id="dot2"></div>
-        <div class="pin-dot" id="dot3"></div>
-        <div class="pin-dot" id="dot4"></div>
-        <div class="pin-dot" id="dot5"></div>
-      </div>
-
-      <div id="loginError" class="login-error" hidden>PIN incorrecto. Intenta de nuevo.</div>
-
-      <div class="pin-pad">
-        <button class="pin-btn" onclick="pinInput(1)">1</button>
-        <button class="pin-btn" onclick="pinInput(2)">2</button>
-        <button class="pin-btn" onclick="pinInput(3)">3</button>
-        <button class="pin-btn" onclick="pinInput(4)">4</button>
-        <button class="pin-btn" onclick="pinInput(5)">5</button>
-        <button class="pin-btn" onclick="pinInput(6)">6</button>
-        <button class="pin-btn" onclick="pinInput(7)">7</button>
-        <button class="pin-btn" onclick="pinInput(8)">8</button>
-        <button class="pin-btn" onclick="pinInput(9)">9</button>
-        <button class="pin-btn pin-btn-empty" disabled></button>
-        <button class="pin-btn" onclick="pinInput(0)">0</button>
-        <button class="pin-btn pin-btn-del" onclick="pinDelete()">⌫</button>
-      </div>
-
-      <div class="login-remember">
-        <label class="remember-toggle">
-          <input type="checkbox" id="loginRemember" checked>
-          <span class="remember-slider"></span>
-        </label>
-        <span>Recordar en este dispositivo</span>
-      </div>
-
-      <button class="btn btn-sm login-back" onclick="volverUserScreen()">← Cambiar empresa</button>
-    </div>
-  </div>
 
   </div>
 
@@ -430,26 +386,6 @@
         <!-- Animaciones -->
 
         <!-- Seguridad / PIN -->
-        <div class="panel" style="margin-top:20px">
-          <div class="panel-header"><h3>🔐 Seguridad / PIN</h3></div>
-          <div class="panel-body">
-            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Protege el acceso a esta empresa con un PIN numérico de 4 a 6 dígitos.</p>
-
-            <div id="pinStatus" style="margin-bottom:16px;font-size:14px"></div>
-
-            <div class="form-grid" style="grid-template-columns:1fr 1fr;max-width:400px">
-              <div class="form-group">
-                <label>Nuevo PIN</label>
-                <input id="cfgPin1" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Ej: 123456">
-              </div>
-              <div class="form-group">
-                <label>Confirmar PIN</label>
-                <input id="cfgPin2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="Repite el PIN">
-              </div>
-            </div>
-            <button class="btn btn-primary" style="margin-top:8px" onclick="setPinFromConfig()">🔒 Guardar PIN</button>
-          </div>
-        </div>
 
         <div class="panel" style="margin-top:20px">
           <div class="panel-header"><h3>🎬 Animaciones y Transiciones</h3></div>
