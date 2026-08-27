@@ -2207,11 +2207,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     applyAnimConfig(animCfg.tipo, animCfg.velocidad);
   } catch(e) {}
 
-  // Hide splash screen
+
+  // Hide splash screen after 5 seconds
   const splash = $('#splashScreen');
   if (splash) {
-    splash.classList.add('fade-out');
-    setTimeout(() => splash.remove(), 600);
+    setTimeout(() => {
+      splash.classList.add('fade-out');
+      setTimeout(() => splash.remove(), 600);
+    }, 5000);
   }
   // Show user selection if multiple users, or go straight to app
   const users = await DB.getUserList();
