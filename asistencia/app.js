@@ -2181,7 +2181,7 @@ document.addEventListener('DOMContentLoaded', () => {
       splash.classList.add('fade-out');
       setTimeout(() => splash.remove(), 600);
     }
-  }, 5000);
+  }, 3000);
 
   // Register service worker (minimal — just cleans old caches)
   if ('serviceWorker' in navigator) {

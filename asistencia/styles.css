@@ -1715,7 +1715,7 @@ input[type="range"]#animSpeed::-webkit-slider-thumb:hover {
   background: #fff;
   border-radius: 2px;
   width: 0%;
-  animation: splashLoad 4.4s ease .6s forwards;
+  animation: splashLoad 2.4s ease .6s forwards;
 }
 @keyframes splashLoad {
   0% { width: 0%; }
